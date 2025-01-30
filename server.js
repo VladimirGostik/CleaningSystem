@@ -12,6 +12,8 @@ const invoiceRoutes = require('./routes/invoiceRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
 const expensesRoutes = require('./routes/expenses');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcryptjs');
+const User = require('./models').User;
 
 dotenv.config();
 const app = express();
@@ -40,6 +42,24 @@ console.log('DATABASE_URL:', process.env.DATABASE_URL);
 // ✅ Všetky ostatné požiadavky budú presmerované na React frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
+});
+
+async function createAdminIfNotExists() {
+  const adminExists = await User.findOne({ where: { role: 'admin' } });
+
+  if (!adminExists) {
+    const hashedPassword = await bcrypt.hash('dianka1997', 10);
+    await User.create({
+      username: 'dianka',
+      password: hashedPassword,
+      role: 'admin',
+    });
+    console.log('Admin account created: admin/admin123');
+  }
+}
+
+sequelize.sync().then(() => {
+  createAdminIfNotExists();
 });
 
 // ✅ Pripojenie k databáze
