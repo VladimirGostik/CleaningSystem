@@ -7,9 +7,12 @@
     "dev": "nodemon server.js",
     "client-install": "npm install --prefix client",
     "client-build": "npm run build --prefix client",
-    "heroku-postbuild": "cd client && npm install && npm run build"
+    "heroku-postbuild": "npm install --prefix client && npm run build --prefix client"
   },
-
+  "engines": {
+    "node": "20.11.1",
+    "npm": "10.9.0"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -24,5 +27,9 @@
     "pg": "^8.13.1",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.5"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "nodemon": "^3.1.9"
   }
 }
