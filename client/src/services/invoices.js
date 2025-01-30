@@ -105,3 +105,44 @@ export const deleteInvoice = async (invoiceId) => {
     throw error;
   }
 };
+
+export const InvoicesBulkMarkAsSent = async (invoiceIds) => {
+  try {
+    const response = await axiosInstance.put('/invoices/bulk-update-status', {
+      invoiceIds,
+      status: 'sent',
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error marking invoices as sent:', error);
+    throw error;
+  }
+};
+
+// 💰 Označenie viacerých faktúr ako ZAPLATENÉ
+export const InvoicesBulkMarkAsPaid = async (invoiceIds, paymentDate) => {
+  try {
+    const response = await axiosInstance.put('/invoices/bulk-update-status', {
+      invoiceIds,
+      status: 'paid',
+      payment_date: paymentDate,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error marking invoices as paid:', error);
+    throw error;
+  }
+};
+
+// ❌ Hromadné vymazanie faktúr
+export const InvoicesBulkDelete = async (invoiceIds) => {
+  try {
+    const response = await axiosInstance.post('/invoices/bulk-delete', {
+      invoiceIds,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting invoices:', error);
+    throw error;
+  }
+};

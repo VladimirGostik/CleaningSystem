@@ -12,7 +12,7 @@ import InvoiceFilter from '../components/InvoiceFilter'; // Import the filter co
 import MarkAsPaidModal from '../modals/MarkAsPaidModal'; // Import the MarkAsPaidModal
 import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Importujte BulkInvoiceDocument
 import { pdf } from '@react-pdf/renderer'; // Importujte funkciu pdf
-import { getInvoices, addInvoice, generateMonthlyInvoices, updateInvoice, InvoicesMarkAsSent, InvoicesMarkAsPaid, deleteInvoice} from '../services/invoices';
+import { getInvoices, addInvoice, generateMonthlyInvoices, updateInvoice, InvoicesMarkAsSent, InvoicesMarkAsPaid, deleteInvoice, InvoicesBulkMarkAsSent, InvoicesBulkMarkAsPaid, InvoicesBulkDelete} from '../services/invoices';
 
 
 const Invoices = () => {
@@ -239,12 +239,9 @@ const Invoices = () => {
       toast.warn('Žiadne faktúry na označenie');
       return;
     }
-
+  
     try {
-      await axios.put('http://localhost:5000/api/invoices/bulk-update-status', {
-        invoiceIds: selectedInvoiceIds,
-        status: 'sent',
-      });
+      await InvoicesBulkMarkAsSent(selectedInvoiceIds);
       fetchInvoices();
       toast.success('Vybrané faktúry označené ako odoslané');
     } catch (error) {
@@ -265,14 +262,10 @@ const Invoices = () => {
 
   const handleBulkMarkAsPaidSubmit = async (paymentDate) => {
     try {
-      await axios.put('http://localhost:5000/api/invoices/bulk-update-status', {
-        invoiceIds: selectedInvoiceIds,
-        status: 'paid',
-        payment_date: paymentDate,
-      });
+      await InvoicesBulkMarkAsPaid(selectedInvoiceIds, paymentDate);
       fetchInvoices();
       toast.success('Vybrané faktúry označené ako zaplatené');
-      setShowBulkMarkAsPaidModal(false); // Zavretie modálu
+      setShowBulkMarkAsPaidModal(false);
     } catch (error) {
       console.error('Error marking invoices as paid:', error);
       toast.error('Chyba pri označovaní faktúr ako zaplatených');
@@ -284,15 +277,13 @@ const Invoices = () => {
       toast.warn('Žiadne faktúry na vymazanie');
       return;
     }
-
+  
     if (!window.confirm('Ste si istý, že chcete vymazať vybrané faktúry?')) {
       return;
     }
-
+  
     try {
-      await axios.post('http://localhost:5000/api/invoices/bulk-delete', {
-        invoiceIds: selectedInvoiceIds,
-      });
+      await InvoicesBulkDelete(selectedInvoiceIds);
       fetchInvoices();
       toast.success('Vybrané faktúry úspešne vymazané');
     } catch (error) {
