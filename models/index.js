@@ -12,7 +12,10 @@ models.Service = require('./Service')(sequelize, Sequelize.DataTypes);
 models.MonthlyInvoice = require('./MonthlyInvoice')(sequelize, Sequelize.DataTypes);
 models.ServicePlanned = require('./ServicePlanned')(sequelize, Sequelize.DataTypes);
 models.Expense = require('./Expense')(sequelize, Sequelize.DataTypes);
-// Pridajte ďalšie modely tu, ak sú
+
+// Pridaj Sequelize inštanciu do models objektu
+models.sequelize = sequelize;
+models.Sequelize = Sequelize;
 
 // Inicializácia asociácií
 Object.values(models)

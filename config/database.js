@@ -9,7 +9,7 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
       rejectUnauthorized: false,
     },
   },
-  logging: false, // vypne logging, aby konzola nebola zahltená
+  logging: false, // voliteľné, vypne logovanie SQL queries
 });
 
 module.exports = sequelize;
