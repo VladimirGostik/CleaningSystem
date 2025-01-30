@@ -34,6 +34,9 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/expenses', expensesRoutes);
 
+dotenv.config();
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
+
 // ✅ Všetky ostatné požiadavky budú presmerované na React frontend
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
