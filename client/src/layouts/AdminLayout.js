@@ -7,19 +7,17 @@ const AdminLayout = ({ children }) => {
   const [showModal, setShowModal] = useState(false);
 
   return (
-    <div className="bg-gray-200 min-h-screen relative">
+    <div className="bg-gray-200 pl-2 min-h-screen flex flex-col">
       {/* Header */}
       <Header onOpenModal={() => setShowModal(true)} />
 
-      <div className="flex">
+      <div className="flex flex-grow h-screen">
         {/* Sidebar */}
         <Sidebar />
 
         {/* Main content */}
-        <main className="flex-grow ml-[20%] p-2">
-          <div className="w-full mx-auto pr-4">
-            {children}
-          </div>
+        <main className="flex-grow p-4">
+          <div className="w-full mx-auto">{children}</div>
         </main>
       </div>
 

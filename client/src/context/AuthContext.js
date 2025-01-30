@@ -8,6 +8,7 @@ export const AuthContext = createContext();
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [loading, setLoading] = useState(true); // ⏳ Pridanie loading stavu
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,6 +23,7 @@ const AuthProvider = ({ children }) => {
           logoutHandler(); // Ak je token neplatný, odhlásiť používateľa
         }
       }
+      setLoading(false); // ✅ Aplikácia vie, že už overila používateľa
     };
 
     fetchUser();
@@ -54,7 +56,7 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginHandler, logoutHandler }}>
+    <AuthContext.Provider value={{ user, loginHandler, logoutHandler, loading }}>
       {children}
     </AuthContext.Provider>
   );

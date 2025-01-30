@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const Sidebar = () => {
   return (
-    <div className="fixed top-16 left-4 h-[calc(100%-4rem)] w-1/6 bg-green-500 text-white shadow-lg p-2 pt-2 px-2 rounded-2xl">
+    <div className="w-1/6 bg-green-500 text-white shadow-lg p-2 pt-2 px-2 rounded-2xl h-full">
       <nav className="flex flex-col">
         <Link
           to="/admin-dashboard"

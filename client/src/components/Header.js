@@ -8,7 +8,7 @@ const Header = ({ onOpenModal }) => {
   const navigate = useNavigate();
 
   return (
-    <header className=" flex items-center justify-between px-6 py-4 bg-gray-200 bg-opacity-50 backdrop-blur-md z-40">
+    <header className=" flex items-center justify-between px-6 py-2 bg-gray-200 bg-opacity-50 backdrop-blur-md z-40">
       <div className="text-green-600 text-2xl font-bold">
         Cleaning System
       </div>
@@ -24,7 +24,6 @@ const Header = ({ onOpenModal }) => {
             className="text-black font-medium cursor-pointer"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
           >
-            {user?.username}
           </span>
           <img
             src="/images/profile.png" // Cesta k uloženej ikone profilu
