@@ -1,0 +1,18 @@
+# Ignoruj environment súbor
+.env
+
+# Node.js závislosti
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Logy
+logs/
+*.log
+
+# Build súbory
+dist/
+build/
+
+# VS Code nastavenia
+.vscode/

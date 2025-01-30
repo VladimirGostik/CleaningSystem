@@ -1,0 +1,107 @@
+import axiosInstance from './axiosInstance';
+
+// 🔢 Získanie posledného čísla faktúry pre konkrétnu firmu a rok
+export const getLastNumber = async (selectedCompany, invoiceYear) => {
+  try {
+    const response = await axiosInstance.get(`/invoices/last-number`, {
+      params: { selectedCompany, invoiceYear }, // Použitie `params` pre správne odoslanie údajov
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error getting last-invoice number:', error);
+    throw error;
+  }
+};
+
+// 🔍 Získanie faktúry podľa ID
+export const getInvoiceById = async (id) => {
+  try {
+    const response = await axiosInstance.get(`/invoices/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting invoice by ID:', error);
+    throw error;
+  }
+};
+
+// 📜 Získanie všetkých faktúr
+export const getInvoices = async () => {
+  try {
+    const response = await axiosInstance.get('/invoices');
+    return response.data;
+  } catch (error) {
+    console.error('Error getting invoices:', error);
+    throw error;
+  }
+};
+
+// ➕ Pridanie faktúry
+export const addInvoice = async (invoiceData, servicesData) => {
+  try {
+    const response = await axiosInstance.post('/invoices', {
+      ...invoiceData,
+      services: servicesData,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error adding invoice:', error);
+    throw error;
+  }
+};
+
+// ✏️ Aktualizácia faktúry
+export const updateInvoice = async (invoiceId, updatedData) => {
+  try {
+    const response = await axiosInstance.put(`/invoices/${invoiceId}`, updatedData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating invoice:', error);
+    throw error;
+  }
+};
+
+// 🚀 Označenie faktúry ako ODOSLANÚ
+export const InvoicesMarkAsSent = async (invoiceId) => {
+  try {
+    const response = await axiosInstance.put(`/invoices/${invoiceId}/mark-as-sent`);
+    return response.data;
+  } catch (error) {
+    console.error('Error marking invoice as sent:', error);
+    throw error;
+  }
+};
+
+// 🔄 Generovanie mesačných faktúr
+export const generateMonthlyInvoices = async (data) => {
+  try {
+    const response = await axiosInstance.post('/invoices/generate-monthly', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error generating monthly invoices:', error);
+    throw error;
+  }
+};
+
+// 💰 Označenie faktúry ako ZAPLATENÚ
+export const InvoicesMarkAsPaid = async (invoiceId, paymentDate) => {
+  try {
+    const response = await axiosInstance.put(`/invoices/${invoiceId}/mark-as-paid`, {
+      payment_date: paymentDate,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error marking invoice as paid:', error);
+    throw error;
+  }
+};
+
+// ❌ Odstránenie faktúry
+export const deleteInvoice = async (invoiceId) => {
+  try {
+    const response = await axiosInstance.delete(`/invoices/${invoiceId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting invoice:', error);
+    throw error;
+  }
+};
