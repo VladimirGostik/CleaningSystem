@@ -46,70 +46,53 @@ const EditMonthlyInvoice = ({ closeModal, onSubmit, invoice }) => {
     }
   }, [invoice]);
 
-  useEffect(() => {
-    // Načítanie detailov vybranej spoločnosti
-    const fetchCompanyDetails = async () => {
-      if (selectedCompany) {
-        try {
-          const company = await getCompanyById(selectedCompany);
-          // Transformácia kľúčov
-          const transformedCompany = {
-            company_name: company.company_name,
-            company_address: company.company_address,
-            city: company.city,
-            postal_code: company.postal_code,
-            ico: company.company_ico,
-            dic: company.company_dic,
-            company_iban: company.company_iban,
-            bank_connection: company.bank_connection,
-            payment_method: company.payment_method || 'Prevodom',
-            company_ic_dph: company.company_ic_dph || null, // Prípadne ďalšie polia
-          };
-          setCompanyDetails(transformedCompany);
-        } catch (error) {
-          console.error('Chyba pri načítaní detailov spoločnosti:', error);
-        }
-      } else {
-        // Resetovanie detailov spoločnosti ak nie je vybratá žiadna spoločnosť
-        setCompanyDetails({});
+ useEffect(() => {
+    // Fetch existing invoice data
+    const fetchInvoiceData = async () => {
+      try {
+        // Populate state variables with fetched data
+        setInvoiceName(invoice.invoice_name || '');
+        setSelectedCompany(invoice.id_company || '');
+        setSelectedResidentialCompany(invoice.id_residential_company || '');
+        setDescriptionAboveServices(invoice.description_above_services || '');
+        setDescriptionServices(invoice.description_services || '');
+        setCompanyDetails({
+          company_name: invoice.company_name || '',
+          company_address: invoice.company_address || '',
+          city: invoice.city || '',
+          postal_code: invoice.postal_code || '',
+          ico: invoice.company_ico || '',
+          dic: invoice.company_dic || '',
+          company_iban: invoice.company_iban || '',
+          bank_connection: invoice.bank_connection || '',
+        });
+        setResidentialCompanyDetails({
+          header1: invoice.header1 || '',
+          header2: invoice.header2 || '',
+          header3: invoice.header3 || '',
+          header4: invoice.header4 || '',
+          id_residential_company: invoice.id_residential_company || '',
+          residential_company_name: invoice.residential_company_name || '',
+          residential_company_address: invoice.residential_company_address || '',
+          residential_city: invoice.residential_city || '',
+          residential_postal_code: invoice.residential_postal_code || '',
+          ico: invoice.residential_company_ico || '',
+          dic: invoice.residential_company_dic || '',
+          iban: invoice.residential_company_iban || '',
+        });
+        setServices(
+          invoice.services.map((service) => ({
+            name: service.name,
+            quantity: service.quantity,
+            price: service.price,
+          })) || [{ name: '', quantity: '', price: '' }]
+        );
+      } catch (error) {
+        console.error('Error fetching invoice data:', error);
       }
     };
-    fetchCompanyDetails();
-  }, [selectedCompany]);
-
-  useEffect(() => {
-    // Načítanie detailov vybranej rezidenčnej spoločnosti
-    const fetchResidentialCompanyDetails = async () => {
-      if (selectedResidentialCompany) {
-        try {
-          const residentialCompany = await getResidentialCompanyById(selectedResidentialCompany);
-          // Transformácia kľúčov
-          const transformedResidentialCompany = {
-            header1: residentialCompany.header1 || '',
-            header2: residentialCompany.header2 || '',
-            header3: residentialCompany.header3 || '',
-            header4: residentialCompany.header4 || '',
-            residential_company_name: residentialCompany.company_name || '',
-            residential_company_address: residentialCompany.company_address || '',
-            residential_city: residentialCompany.city || '',
-            residential_postal_code: residentialCompany.postal_code || '',
-            ico: residentialCompany.company_ico || '',
-            dic: residentialCompany.company_dic || '',
-            iban: residentialCompany.company_iban || '',
-            bank_connection: residentialCompany.bank_connection || '',
-            residential_company_ic_dph: residentialCompany.residential_company_ic_dph || null, // Prípadne ďalšie polia
-          };
-          setResidentialCompanyDetails(transformedResidentialCompany);
-        } catch (error) {
-          console.error('Chyba pri načítaní detailov bytového podniku:', error);
-        }
-      } else {
-        // Resetovanie detailov rezidenčnej spoločnosti ak nie je vybratá žiadna
-        setResidentialCompanyDetails({});
-      }
-    };
-    fetchResidentialCompanyDetails();
-  }, [selectedResidentialCompany]);
+    fetchInvoiceData();
+  }, [invoice]);
 
   const handleServiceChange = (index, field, value) => {
     const updatedServices = [...services];
@@ -232,7 +215,30 @@ const EditMonthlyInvoice = ({ closeModal, onSubmit, invoice }) => {
                 id="selectCompany"
                 className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
                 value={selectedCompany}
-                onChange={(e) => setSelectedCompany(e.target.value)}
+                onChange={async (e) => {
+                  const newCompanyId = e.target.value;
+                  setSelectedCompany(newCompanyId);
+
+                  // Fetch company details immediately
+                  if (newCompanyId) {
+                    try {
+                      const company = await getCompanyById(newCompanyId);
+                      const transformedCompany = {
+                        company_name: company.company_name,
+                        company_address: company.company_address,
+                        city: company.city,
+                        postal_code: company.postal_code,
+                        ico: company.company_ico,
+                        dic: company.company_dic,
+                        company_iban: company.company_iban,
+                        bank_connection: company.bank_connection,
+                      };
+                      setCompanyDetails(transformedCompany);
+                    } catch (error) {
+                      console.error('Error fetching company details:', error);
+                    }
+                  }
+                }}
                 required
               >
                 <option value="">-- Vyberte spoločnosť --</option>
@@ -252,7 +258,35 @@ const EditMonthlyInvoice = ({ closeModal, onSubmit, invoice }) => {
                 id="selectResidentialCompany"
                 className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
                 value={selectedResidentialCompany}
-                onChange={(e) => setSelectedResidentialCompany(e.target.value)}
+                onChange={async (e) => {
+                  const newResidentialCompanyId = e.target.value;
+                  setSelectedResidentialCompany(newResidentialCompanyId);
+
+                  // Fetch residential company details immediately
+                  if (newResidentialCompanyId) {
+                    try {
+                      const residentialCompany = await getResidentialCompanyById(newResidentialCompanyId);
+                      setSelectedResidentialCompany(newResidentialCompanyId);
+                      const transformedResidentialCompany = {
+                        header1: residentialCompany.header1,
+                        header2: residentialCompany.header2,
+                        header3: residentialCompany.header3,
+                        header4: residentialCompany.header4,
+                        id_residential_company: newResidentialCompanyId,
+                        residential_company_name: residentialCompany.company_name,
+                        residential_company_address: residentialCompany.company_address,
+                        residential_city: residentialCompany.city,
+                        residential_postal_code: residentialCompany.postal_code,
+                        ico: residentialCompany.company_ico,
+                        dic: residentialCompany.company_dic,
+                        iban: residentialCompany.company_iban,
+                      };
+                      setResidentialCompanyDetails(transformedResidentialCompany);
+                    } catch (error) {
+                      console.error('Error fetching residential company details:', error);
+                    }
+                  }
+                }}
                 required
               >
                 <option value="">-- Vyberte bytový podnik --</option>

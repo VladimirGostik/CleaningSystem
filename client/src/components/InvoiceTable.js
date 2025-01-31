@@ -1,5 +1,4 @@
-// src/components/InvoiceTable.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -8,6 +7,7 @@ import ViewMonthlyInvoice from '../modals/ViewMonthlyInvoice';
 import InvoicePdf from './InvoicePDF';
 import { PDFViewer } from '@react-pdf/renderer';
 import { updateMonthlyInvoice } from '../services/monthlyInvoiceService';
+import { getResidentialCompanyById } from '../services/companyService';
 
 const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
   const [showEditModal, setShowEditModal] = useState(false);
@@ -15,6 +15,25 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showActions, setShowActions] = useState(null);
+  const [residentialCompanyNames, setResidentialCompanyNames] = useState({}); // Uloženie názvov bytových podnikov
+
+  useEffect(() => {
+    const fetchResidentialCompanyNames = async () => {
+      const names = {};
+      for (const invoice of invoices) {
+        try {
+          const residential_company = await getResidentialCompanyById(invoice.id_residential_company);
+          names[invoice.id] = residential_company.company_name || 'N/A';
+        } catch (error) {
+          console.error(`Chyba pri načítaní bytového podniku pre faktúru ${invoice.id}:`, error);
+          names[invoice.id] = 'N/A';
+        }
+      }
+      setResidentialCompanyNames(names);
+    };
+
+    fetchResidentialCompanyNames();
+  }, [invoices]);
 
   const handleEdit = (invoice) => {
     setSelectedInvoice(invoice);
@@ -47,16 +66,6 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
     }
   };
 
-  // Spracovanie údajov pred renderovaním
-  const formattedInvoices = invoices.map(invoice => ({
-    ...invoice,
-    services_planned: invoice.services_planned.map(service => ({
-      ...service,
-      price: typeof service.price === 'string' ? parseFloat(service.price) : service.price,
-      quantity: typeof service.quantity === 'string' ? parseInt(service.quantity, 10) : service.quantity,
-    })),
-  }));
-
   return (
     <div className="mt-4">
       <table className="w-full border-collapse">
@@ -69,11 +78,13 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
           </tr>
         </thead>
         <tbody>
-          {formattedInvoices.map((invoice) => (
+          {invoices.map((invoice) => (
             <tr key={invoice.id} className="border">
               <td className="p-2 text-green-700 font-bold">{invoice.invoice_name}</td>
               <td className="p-2">{invoice.company_name || 'N/A'}</td>
-              <td className="p-2">{invoice.residential_company_name || 'N/A'}</td>
+              <td className="p-2">
+                {residentialCompanyNames[invoice.id] || 'Loading...'}
+              </td>
               <td className="p-2">
                 <div className="relative">
                   <button
@@ -164,7 +175,6 @@ InvoiceTable.propTypes = {
       id: PropTypes.number.isRequired,
       invoice_name: PropTypes.string,
       company_name: PropTypes.string,
-      residential_company_name: PropTypes.string,
       services_planned: PropTypes.arrayOf(
         PropTypes.shape({
           name: PropTypes.string.isRequired,
@@ -172,7 +182,6 @@ InvoiceTable.propTypes = {
           price: PropTypes.number,
         })
       ),
-      // Pridajte ďalšie polia podľa potreby
     })
   ).isRequired,
   onDelete: PropTypes.func.isRequired,
