@@ -117,9 +117,14 @@ const AddInvoiceModal = ({ closeModal, onSubmit }) => {
     }
 
     try {
-
       const response = await getLastNumber(selectedCompany,invoiceYear);
-      const lastInvoiceNumber = response.data.lastInvoiceNumber;
+
+      if (response.error) {
+        console.error("Backend vrátil error:", response.error);
+        // tu môžeš vyhodiť nejaké upozornenie alebo vrátiť
+        return;
+      }
+      const lastInvoiceNumber = response.lastInvoiceNumber;
 
       // Extract and increment the number
       let newNumber = 1;

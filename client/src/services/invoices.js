@@ -4,7 +4,7 @@ import axiosInstance from './axiosInstance';
 export const getLastNumber = async (selectedCompany, invoiceYear) => {
   try {
     const response = await axiosInstance.get(`/invoices/last-number`, {
-      params: { selectedCompany, invoiceYear }, // Použitie `params` pre správne odoslanie údajov
+      params: { selectedCompany: parseInt(selectedCompany, 10), invoiceYear: parseInt(invoiceYear, 10) }, // Použitie `params` pre správne odoslanie údajov
     });
     return response.data;
   } catch (error) {

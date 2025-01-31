@@ -63,14 +63,18 @@ exports.getInvoiceById = async (req, res) => {
 };
 
 exports.getLastInvoiceNumber = async (req, res) => {
-  const { companyId, year } = req.params;
+  const { selectedCompany, invoiceYear } = req.query; // <-- dôležitá zmena
+
+  if (!selectedCompany || !invoiceYear) {
+    return res.status(400).json({ error: "Missing required parameters" });
+  }
 
   try {
     const lastInvoice = await Invoice.findOne({
       where: {
-        id_company: companyId,
+        id_company: selectedCompany,
         issue_date: {
-          [Op.between]: [`${year}-01-01`, `${year}-12-31`],
+          [Op.between]: [`${invoiceYear}-01-01`, `${invoiceYear}-12-31`],
         },
       },
       order: [['invoice_number', 'DESC']],
@@ -84,6 +88,7 @@ exports.getLastInvoiceNumber = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 
 // Aktualizácia faktúry
 // controllers/invoiceController.js
