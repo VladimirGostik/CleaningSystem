@@ -1,80 +1,107 @@
+// src/pages/CompanyDashboard.js
 import React, { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import AdminLayout from '../layouts/AdminLayout';
-import AddNewCompany from '../modals/AddNewCompany';
-import { addCompany, getCompanies } from '../services/companyService';
-import CompanyItem from '../components/CompanyItem';
+import { getCompanies } from '../services/companyService';
+import { getInvoices } from '../services/invoices';
+import { getExpenses } from '../services/expansesService';
+import CompanyBox from '../components/CompanyBox';
 
-const AdminDashboard = () => {
-  const [showModal, setShowModal] = useState(false);
+const CompanyDashboard = () => {
   const [companies, setCompanies] = useState([]);
-  const [expandedCompany, setExpandedCompany] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  // Predvolená časová perióda – uprav si podľa potreby
+  const [fromDate, setFromDate] = useState('2025-01-01');
+  const [toDate, setToDate] = useState('2025-12-31');
+
+  useEffect(() => {
+    fetchCompanies();
+    fetchInvoices();
+    fetchExpenses();
+  }, []);
 
   const fetchCompanies = async () => {
     try {
-      const companiesData = await getCompanies();
-      setCompanies(companiesData);
+      const res = await getCompanies();
+      // Predpokladáme, že API vracia dáta v res.data, inak použi priamo res
+      setCompanies(res.data || res);
     } catch (error) {
       console.error('Error fetching companies:', error);
     }
   };
 
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
-
-  const handleAddCompany = async (companyData) => {
+  const fetchInvoices = async () => {
     try {
-      await addCompany({ ...companyData, type: 'company' });
-      setShowModal(false); // Close the modal after successful addition
-      fetchCompanies(); // Refresh the companies list
-      toast.success('Firma bola úspešne pridaná');
+      const res = await getInvoices();
+      setInvoices(res);
     } catch (error) {
-      console.error('Error adding company:', error);
-      toast.error('Chyba pri vytváraní firmy');
+      console.error('Error fetching invoices:', error);
     }
   };
 
-  const handleToggleExpand = (companyId) => {
-    setExpandedCompany(expandedCompany === companyId ? null : companyId);
+  const fetchExpenses = async () => {
+    try {
+      const res = await getExpenses();
+      setExpenses(res.data || res);
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+    }
   };
+
+  // Filtrovanie faktúr a výdavkov podľa vybraného časového obdobia.
+  // Predpokladáme, že faktúry majú property issue_date a výdavky vlastnosť start_date vo formáte ISO.
+  const filteredInvoices = invoices.filter(inv => {
+    const issueDate = new Date(inv.issue_date);
+    return issueDate >= new Date(fromDate) && issueDate <= new Date(toDate);
+  });
+
+  const filteredExpenses = expenses.filter(exp => {
+    const startDate = new Date(exp.start_date);
+    return startDate >= new Date(fromDate) && startDate <= new Date(toDate);
+  });
 
   return (
     <AdminLayout>
-      <div className="flex justify-between items-center mb-2">
-        <div className='flex items-center gap-2'>
-          <img
-            src="/images/graph.png"
-            alt="Graph"
-            className="w-6 h-6 rounded-full"
-          />
-          <h1 className='text-grey-600 text-2xl font-bold'>Prehľad</h1>
-        </div>
-        <button
-          className='bg-green-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-green-700 transition duration-300'
-          onClick={() => setShowModal(true)}
-        >
-          + Pridať firmu
-        </button>
-      </div>
-      <div className='bg-white w-full min-h-screen p-4 shadow-xl rounded-2xl'>
-        {companies.map((company) => (
-          <CompanyItem
-            key={company.id}
-            company={company}
-            expandedCompany={expandedCompany}
-            handleToggleExpand={handleToggleExpand}
-            fetchCompanies={fetchCompanies} // Add this prop to refresh companies list
-          />
-        ))}
-      </div>
+      <div className="p-4">
+        <h1 className="text-2xl font-bold mb-4">Prehľad firiem</h1>
 
-      {showModal && (
-        <AddNewCompany closeModal={() => setShowModal(false)} onSubmit={handleAddCompany} />
-      )}
+        {/* Výber časového obdobia */}
+        <div className="mb-4 flex items-center gap-4">
+          <div>
+            <label className="mr-2 font-semibold">Od:</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="border rounded px-2 py-1"
+            />
+          </div>
+          <div>
+            <label className="mr-2 font-semibold">Do:</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="border rounded px-2 py-1"
+            />
+          </div>
+        </div>
+
+        {/* Zobrazenie firiem – v mriežke */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {companies.map(company => (
+            <CompanyBox
+              key={company.id}
+              company={company}
+              // Filtrovanie faktúr a výdavkov podľa firmy
+              invoices={filteredInvoices.filter(inv => inv.company_id === company.id)}
+              expenses={filteredExpenses.filter(exp => exp.id_company === company.id)}
+            />
+          ))}
+        </div>
+      </div>
     </AdminLayout>
   );
 };
 
-export default AdminDashboard;
+export default CompanyDashboard;

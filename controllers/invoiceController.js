@@ -96,8 +96,6 @@ exports.getLastInvoiceNumber = async (req, res) => {
 exports.updateInvoice = async (req, res) => {
   try {
     const { services, ...invoiceData } = req.body;
-    console.log('Received invoice data:', invoiceData);
-
     const invoice = await Invoice.findByPk(req.params.id);
 
     if (!invoice) {
@@ -106,9 +104,6 @@ exports.updateInvoice = async (req, res) => {
 
     // Update invoice fields
     invoice.set(invoiceData);
-
-    // Log changed fields
-    console.log('Changed fields before save:', invoice.changed());
 
     // Save changes
     await invoice.save();

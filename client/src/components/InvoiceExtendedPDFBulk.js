@@ -279,8 +279,7 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
             <Text style={styles.infoText}>{residential_company_address}</Text>
           )}
           {residential_city && residential_postal_code && (
-            <Text style={styles.infoText}>
-              {residential_city}, {residential_postal_code}
+            <Text style={styles.infoText}>{residential_city}, {residential_postal_code}
             </Text>
           )}
           {residential_company_ico && (

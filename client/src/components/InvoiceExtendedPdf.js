@@ -270,22 +270,22 @@ const InvoiceExtendedPdf = ({ invoice }) => {
                     <View style={styles.detailsColumn}>
                         <Text style={styles.sectionTitle}>Odberateľ</Text>
                         {header1 && (
-                            <Text style={styles.infoText}> {header1}</Text>
+                            <Text style={styles.infoText}>{header1}</Text>
                         )}
                         {header2 && (
-                            <Text style={styles.infoText}> {header2}</Text>
+                            <Text style={styles.infoText}>{header2}</Text>
                         )}
                         {header3 && (
-                            <Text style={styles.infoText}> {header3}</Text>
+                            <Text style={styles.infoText}>{header3}</Text>
                         )}
                         {header4 && (
-                            <Text style={styles.infoText}> {header4}</Text>
+                            <Text style={styles.infoText}>{header4}</Text>
                         )}
                         {residential_company_name && (
-                            <Text style={styles.infoText}> {residential_company_name}</Text>
+                            <Text style={styles.infoText}>{residential_company_name}</Text>
                         )}
                         {residential_company_address && (
-                            <Text style={styles.infoText}> {residential_company_address}</Text>
+                            <Text style={styles.infoText}>{residential_company_address}</Text>
                         )}
                         {(residential_city && residential_postal_code) && (
                             <Text style={styles.infoText}>

@@ -7,7 +7,6 @@ import {
 } from '../services/companyService';
 import { getLastNumber } from '../services/invoices';
 import PropTypes from 'prop-types';
-import axios from 'axios';
 
 const AddInvoiceModal = ({ closeModal, onSubmit }) => {
   const [invoiceName, setInvoiceName] = useState('');
@@ -229,7 +228,6 @@ const AddInvoiceModal = ({ closeModal, onSubmit }) => {
       quantity: parseInt(service.quantity, 10),
       price: parseFloat(service.price),
     }));
-    console.log(invoiceData);
     // Submit data
     onSubmit({ invoiceData, servicesData });
   };

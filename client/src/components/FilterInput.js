@@ -15,8 +15,7 @@ const FilterInput = ({ onFilter }) => {
       try {
         const companies = await getCompanies();
         const residentialCompanies = await getResidentialCompanies();
-        console.log(companies);
-        console.log(residentialCompanies);
+
         setCompaniesOptions(companies.map(company => ({
           value: company.company_name,
           label: company.company_name,

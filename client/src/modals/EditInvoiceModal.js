@@ -183,9 +183,6 @@ const EditInvoiceModal = ({ closeModal, onSubmit, invoiceId }) => {
       ...invoiceData,
       services: servicesData,
     };
-
-    console.log('Data being sent to backend:', dataToSend);
-
     // Send the data in the format the backend expects
     onSubmit(invoiceId, dataToSend);
   };

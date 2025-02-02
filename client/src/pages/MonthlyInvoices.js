@@ -26,7 +26,6 @@ const MonthlyInvoices = () => {
 
   const handleAddInvoice = async ({ invoiceData, servicesData }) => {
     try {
-      console.log({ invoiceData, servicesData });
       await addMonthlyInvoice({ invoiceData, servicesData });
       setShowModal(false);
       fetchInvoices(); // Refresh the invoices list after successful addition
