@@ -2,13 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Table, TableBody, TableCell, TableRow } from '@mui/material';
 
-const CompanyBox = ({ company, invoices, expenses }) => {
+const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
   const [invoiceStatusTotals, setInvoiceStatusTotals] = useState({});
   const [expenseTypeTotals, setExpenseTypeTotals] = useState({});
   const [profit, setProfit] = useState(0);
 
   useEffect(() => {
-    // Najprv prepočítame celkovú cenu faktúry, ak obsahuje pole "services"
+    // Agregácia faktúr podľa statusu (predpokladáme, že faktúry už obsahujú computed "total_price")
     const computedInvoices = invoices.map((invoice) => {
       const totalPrice = (invoice.services || []).reduce((acc, service) => {
         const price = parseFloat(service.price) || 0;
@@ -28,24 +28,46 @@ const CompanyBox = ({ company, invoices, expenses }) => {
       acc.total = (acc.total || 0) + amount;
       return acc;
     }, {});
-  
-    // Agregácia výdavkov podľa typu
+
+    // Pre výdavky definujeme filtrované obdobie
+    const filterStart = new Date(fromDate);
+    const filterEnd = new Date(toDate);
+
+    // Agregácia výdavkov podľa typu s prepočtom mesacných výdavkov
     const expenseTotals = expenses.reduce((acc, exp) => {
+      let effectiveAmount = 0;
+      if (exp.type === 'mesacna') {
+        // Pre mesacné výdavky počítame počet mesiacov, počas ktorých je výdavok aktívny v rámci filtrovaného obdobia.
+        const expenseStart = new Date(exp.start_date);
+        // Ak nie je definovaný end_date, predpokladáme, že výdavok trvá až do konca filtrovaného obdobia.
+        const expenseEnd = exp.end_date ? new Date(exp.end_date) : filterEnd;
+        // Výpočet aktívneho intervalu: od maximálneho z expenseStart a filterStart,
+        // do minimálneho z expenseEnd a filterEnd.
+        const activeStart = expenseStart > filterStart ? expenseStart : filterStart;
+        const activeEnd = expenseEnd < filterEnd ? expenseEnd : filterEnd;
+        if (activeStart <= activeEnd) {
+          // Funkcia na výpočet rozdielu v mesiacoch vrátane oboch mesiacov
+          const monthDiff = (activeEnd.getFullYear() - activeStart.getFullYear()) * 12 +
+            (activeEnd.getMonth() - activeStart.getMonth()) + 1;
+          effectiveAmount = (parseFloat(exp.price) || 0) * monthDiff;
+        }
+      } else {
+        // Jednorazový výdavok sa počíta len raz
+        effectiveAmount = parseFloat(exp.price) || 0;
+      }
       const type = exp.type || 'unknown';
-      const amount = parseFloat(exp.price) || 0;
-      acc[type] = (acc[type] || 0) + amount;
-      acc.total = (acc.total || 0) + amount;
+      acc[type] = (acc[type] || 0) + effectiveAmount;
+      acc.total = (acc.total || 0) + effectiveAmount;
       return acc;
     }, {});
-  
+
     const paidInvoiceTotal = invoiceTotals.paid || 0;
     const expenseTotal = expenseTotals.total || 0;
     setProfit(paidInvoiceTotal - expenseTotal);
-  
+
     setInvoiceStatusTotals(invoiceTotals);
     setExpenseTypeTotals(expenseTotals);
-  }, [invoices, expenses]);
-  
+  }, [invoices, expenses, fromDate, toDate]);
 
   return (
     <Box sx={{ border: '1px solid #ddd', borderRadius: '8px', p: 2, boxShadow: 2, bgcolor: 'white', mb: 2 }}>
@@ -61,11 +83,11 @@ const CompanyBox = ({ company, invoices, expenses }) => {
       <Table size="small">
         <TableBody>
           <TableRow>
-            <TableCell>Vytvorene:</TableCell>
+            <TableCell>Created:</TableCell>
             <TableCell align="right">{invoiceStatusTotals.created || 0} €</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Poslane:</TableCell>
+            <TableCell>Sent:</TableCell>
             <TableCell align="right">{invoiceStatusTotals.sent || 0} €</TableCell>
           </TableRow>
           <TableRow>
@@ -73,7 +95,7 @@ const CompanyBox = ({ company, invoices, expenses }) => {
             <TableCell align="right">{invoiceStatusTotals.expired || 0} €</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Zaplatene:</TableCell>
+            <TableCell>Paid:</TableCell>
             <TableCell align="right">{invoiceStatusTotals.paid || 0} €</TableCell>
           </TableRow>
           <TableRow>
@@ -104,7 +126,7 @@ const CompanyBox = ({ company, invoices, expenses }) => {
         </TableBody>
       </Table>
 
-      {/* Sekcia: Kombinácia */}
+      {/* Sekcia: Kombinácia (zaplatené faktúry vs. výdavky) */}
       <Typography variant="subtitle1" sx={{ mt: 2 }}>
         Kombinácia (Zaplatené faktúry vs. Výdavky):
       </Typography>

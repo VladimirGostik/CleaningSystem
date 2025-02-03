@@ -209,6 +209,7 @@ const InvoiceExtendedPdf = ({ invoice }) => {
         residential_postal_code,
         residential_company_ico,
         residential_company_dic,
+        residential_company_iban,
         description_above_services,
         description_services,
         services,
@@ -297,6 +298,9 @@ const InvoiceExtendedPdf = ({ invoice }) => {
                         )}
                         {residential_company_dic && (
                             <Text style={styles.infoText}>DIČ: {residential_company_dic}</Text>
+                        )}
+                        {residential_company_iban && (
+                            <Text style={styles.infoText}>Iban: {residential_company_iban}</Text>
                         )}
                     </View>
                 </View>

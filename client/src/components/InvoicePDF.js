@@ -209,6 +209,7 @@ const InvoicePdf = ({ invoice }) => {
         residential_postal_code,
         residential_company_ico,
         residential_company_dic,
+        residential_company_iban,
         description_above_services,
         description_services,
         services_planned,
@@ -261,33 +262,36 @@ const InvoicePdf = ({ invoice }) => {
                     <View style={styles.detailsColumn}>
                         <Text style={styles.sectionTitle}>Odberateľ</Text>
                         {header1 && (
-                            <Text style={styles.infoText}> {header1}</Text>
+                            <Text style={styles.infoText}>{header1.trim()}</Text>
                         )}
                         {header2 && (
-                            <Text style={styles.infoText}> {header2}</Text>
+                            <Text style={styles.infoText}>{header2.trim()}</Text>
                         )}
                         {header3 && (
-                            <Text style={styles.infoText}> {header3}</Text>
+                            <Text style={styles.infoText}>{header3.trim()}</Text>
                         )}
                         {header4 && (
-                            <Text style={styles.infoText}> {header4}</Text>
+                            <Text style={styles.infoText}>{header4.trim()}</Text>
                         )}
                         {residential_company_name && (
-                            <Text style={styles.infoText}> {residential_company_name}</Text>
+                            <Text style={styles.infoText}>{residential_company_name.trim()}</Text>
                         )}
                         {residential_company_address && (
-                            <Text style={styles.infoText}> {residential_company_address}</Text>
+                            <Text style={styles.infoText}>{residential_company_address.trim()}</Text>
                         )}
                         {(residential_city && residential_postal_code) && (
                             <Text style={styles.infoText}>
-                                {residential_city || 'N/A'}, {residential_postal_code || 'N/A'}
+                                {residential_city.trim()}, {residential_postal_code.trim()}
                             </Text>
                         )}
                         {residential_company_ico && (
-                            <Text style={styles.infoText}>IČO: {residential_company_ico}</Text>
+                            <Text style={styles.infoText}>IČO: {residential_company_ico.trim()}</Text>
                         )}
                         {residential_company_dic && (
-                            <Text style={styles.infoText}>DIČ: {residential_company_dic}</Text>
+                            <Text style={styles.infoText}>DIČ: {residential_company_dic.trim()}</Text>
+                        )}
+                        {residential_company_iban && (
+                            <Text style={styles.infoText}>Iban: {residential_company_iban.trim()}</Text>
                         )}
                     </View>
                 </View>

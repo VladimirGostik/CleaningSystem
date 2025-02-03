@@ -10,22 +10,23 @@ const AdminLayout = ({ children }) => {
     <div className="bg-gray-200 pl-2 min-h-screen flex flex-col">
       {/* Header */}
       <Header onOpenModal={() => setShowModal(true)} />
-
-      <div className="flex flex-grow h-screen">
+  
+      <div className="flex flex-grow min-h-screen">
         {/* Sidebar */}
         <Sidebar />
-
+  
         {/* Main content */}
         <main className="flex-grow p-4">
           <div className="w-full mx-auto">{children}</div>
         </main>
       </div>
-
+  
       {showModal && (
         <AddNewModal closeModal={() => setShowModal(false)} />
       )}
     </div>
   );
+  
 };
 
 export default AdminLayout;

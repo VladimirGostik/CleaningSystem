@@ -42,7 +42,8 @@ const CompanyDashboard = () => {
   const fetchExpenses = async () => {
     try {
       const res = await getExpenses();
-      setExpenses(res.data || res);
+      console.log(res.data);
+      setExpenses(res.data);
     } catch (error) {
       console.error('Error fetching expenses:', error);
     }
@@ -53,11 +54,6 @@ const CompanyDashboard = () => {
   const filteredInvoices = invoices.filter(inv => {
     const issueDate = new Date(inv.issue_date);
     return issueDate >= new Date(fromDate) && issueDate <= new Date(toDate);
-  });
-
-  const filteredExpenses = expenses.filter(exp => {
-    const startDate = new Date(exp.start_date);
-    return startDate >= new Date(fromDate) && startDate <= new Date(toDate);
   });
 
   return (
@@ -94,8 +90,10 @@ const CompanyDashboard = () => {
               key={company.id}
               company={company}
               // Filtrovanie faktúr a výdavkov podľa firmy
-              invoices={filteredInvoices.filter(inv => inv.company_id === company.id)}
-              expenses={filteredExpenses.filter(exp => exp.id_company === company.id)}
+              invoices={filteredInvoices.filter(inv => inv.id_company === company.id)}
+              expenses={expenses.filter(exp => exp.id_company === company.id)}
+              fromDate={fromDate}
+              toDate={toDate}
             />
           ))}
         </div>
