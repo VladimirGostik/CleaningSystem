@@ -28,18 +28,18 @@ Font.register({
 // Definujeme štýly
 const styles = StyleSheet.create({
     page: {
-        fontFamily: 'DejaVu Sans', // Použitie fontu DejaVu Sans
+        fontFamily: 'DejaVu Sans',
         fontSize: 10,
         paddingTop: 20,
         paddingHorizontal: 40,
         paddingBottom: 40,
         lineHeight: 1.5,
         flexDirection: 'column',
-        justifyContent: 'space-between', // Rozloženie obsahu medzi vrch a spodok
+        justifyContent: 'space-between',
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'center', // Zarovnanie na stred
+        justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 10,
         borderBottomWidth: 1,
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     invoiceNumber: {
         fontSize: 14,
         marginTop: 5,
-        textAlign: 'center', // Zarovnanie čísla faktúry na stred
+        textAlign: 'center',
         width: '100%',
         color: colors.primaryBlue,
         fontWeight: 'bold',
@@ -65,11 +65,11 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primaryBlue,
         borderRadius: 6,
         flexDirection: 'row',
-        justifyContent: 'space-between', // Zobrazenie v jednom riadku
+        justifyContent: 'space-between',
     },
     invoiceDetailsText: {
         fontSize: 11,
-        color: colors.white, // Biely text na modrom pozadí
+        color: colors.white,
         marginBottom: 2,
     },
     section: {
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
         width: '25%',
         fontSize: 10,
         fontWeight: 'bold',
-        color: colors.white, // Biely text na modrom pozadí
+        color: colors.white,
         textAlign: 'left',
         paddingLeft: 4,
     },
@@ -185,6 +185,26 @@ const styles = StyleSheet.create({
     },
 });
 
+// Pomocná funkcia na formátovanie description_above_services
+const formatDescription = (desc, month, invoice_date) => {
+  if (!desc) return '';
+  // Najprv nahradíme token {mesiac/rok}
+  const formatted = desc
+    .replace(/{mesiac\/rok}/g, () => {
+      const invoiceDateObj = new Date(invoice_date);
+      let invoiceYear = invoiceDateObj.getFullYear();
+      const invoiceMonth = parseInt(month, 10);
+      // Ak je mesiac fakturácie 12, rok znížime o 1
+      if (invoiceMonth === 12) {
+        invoiceYear = invoiceYear - 1;
+      }
+      return `${month}/${invoiceYear}`;
+    })
+    // Potom nahradíme token {mesiac}
+    .replace(/{mesiac}/g, month);
+  return formatted;
+};
+
 const InvoicePdf = ({ invoice }) => {
     const {
         invoice_number,
@@ -215,6 +235,9 @@ const InvoicePdf = ({ invoice }) => {
         services_planned,
     } = invoice;
 
+    // Použijeme formátovanie description_above_services
+    const formattedDescriptionAbove = formatDescription(description_above_services, month, invoice_date);
+
     // Formátovanie služieb
     const formattedServices = Array.isArray(services_planned)
         ? services_planned
@@ -236,7 +259,7 @@ const InvoicePdf = ({ invoice }) => {
             <Page size="A4" style={styles.page}>
                 {/* Hlavička */}
                 <View style={styles.header}>
-                    {/* Logo */}
+                    {/* Logo alebo číslo faktúry */}
                     <Text style={styles.invoiceNumber}>Faktúra č: {invoice_number}</Text>
                 </View>
 
@@ -261,18 +284,10 @@ const InvoicePdf = ({ invoice }) => {
                     </View>
                     <View style={styles.detailsColumn}>
                         <Text style={styles.sectionTitle}>Odberateľ</Text>
-                        {header1 && (
-                            <Text style={styles.infoText}>{header1.trim()}</Text>
-                        )}
-                        {header2 && (
-                            <Text style={styles.infoText}>{header2.trim()}</Text>
-                        )}
-                        {header3 && (
-                            <Text style={styles.infoText}>{header3.trim()}</Text>
-                        )}
-                        {header4 && (
-                            <Text style={styles.infoText}>{header4.trim()}</Text>
-                        )}
+                        {header1 && <Text style={styles.infoText}>{header1.trim()}</Text>}
+                        {header2 && <Text style={styles.infoText}>{header2.trim()}</Text>}
+                        {header3 && <Text style={styles.infoText}>{header3.trim()}</Text>}
+                        {header4 && <Text style={styles.infoText}>{header4.trim()}</Text>}
                         {residential_company_name && (
                             <Text style={styles.infoText}>{residential_company_name.trim()}</Text>
                         )}
@@ -313,9 +328,10 @@ const InvoicePdf = ({ invoice }) => {
                     </Text>
                 </View>
 
-                {description_above_services && (
+                {/* Description Above Services s tokenmi nahradenými */}
+                {formattedDescriptionAbove && (
                     <View style={styles.section2}>
-                        <Text style={styles.infoText}>{description_above_services}</Text>
+                        <Text style={styles.infoText}>{formattedDescriptionAbove}</Text>
                     </View>
                 )}
 
@@ -337,7 +353,9 @@ const InvoicePdf = ({ invoice }) => {
                         <View style={styles.tableRow} key={index}>
                             <Text style={{ ...styles.tableCol, flex: 4 }}>{service.name || 'N/A'}</Text>
                             <Text style={{ ...styles.tableCol, flex: 1 }}>{service.quantity}</Text>
-                            <Text style={{ ...styles.tableCol, flex: 1 }}>{(service.price * service.quantity).toFixed(2)} €</Text>
+                            <Text style={{ ...styles.tableCol, flex: 1 }}>
+                                {(service.price * service.quantity).toFixed(2)} €
+                            </Text>
                         </View>
                     ))}
                 </View>
@@ -353,7 +371,6 @@ const InvoicePdf = ({ invoice }) => {
 
                 {/* Podpisy a Pätička */}
                 <View>
-                    {/* Podpisy */}
                     <View style={styles.signatureSection}>
                         <View style={styles.signature}>
                             <Text>Vyhotovil:</Text>
@@ -364,8 +381,6 @@ const InvoicePdf = ({ invoice }) => {
                             <View style={styles.signatureLine} />
                         </View>
                     </View>
-
-                    {/* Footer */}
                     <View style={styles.footer}>
                         <Text>
                             © {new Date().getFullYear()} {company_name || 'N/A'}. Všetky práva vyhradené.
@@ -401,6 +416,7 @@ InvoicePdf.propTypes = {
         residential_postal_code: PropTypes.string,
         residential_company_ico: PropTypes.string,
         residential_company_dic: PropTypes.string,
+        residential_company_iban: PropTypes.string,
         description_above_services: PropTypes.string,
         description_services: PropTypes.string,
         payment_method: PropTypes.string,

@@ -184,6 +184,21 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
 });
+const formatDescription = (desc, billing_month, issue_date) => {
+    if (!desc) return '';
+    const formatted = desc
+      .replace(/{mesiac\/rok}/g, () => {
+        const invoiceDateObj = new Date(issue_date);
+        let invoiceYear = invoiceDateObj.getFullYear();
+        const monthNum = parseInt(billing_month, 10);
+        if (monthNum === 12) {
+          invoiceYear = invoiceYear - 1;
+        }
+        return `${billing_month}/${invoiceYear}`;
+      })
+      .replace(/{mesiac}/g, billing_month);
+    return formatted;
+  }; 
 
 const InvoiceExtendedPdf = ({ invoice }) => {
     const {
@@ -239,7 +254,9 @@ const InvoiceExtendedPdf = ({ invoice }) => {
         (acc, service) => acc + (service.price || 0) * (service.quantity || 0),
         0
     );
-    
+
+    const formattedDescriptionAbove = formatDescription(description_above_services, billing_month, issue_date);
+
     return (
         <Document>
             <Page size="A4" style={styles.page}>
@@ -322,9 +339,9 @@ const InvoiceExtendedPdf = ({ invoice }) => {
                     </Text>
                 </View>
 
-                {description_above_services && (
+                {formattedDescriptionAbove && (
                     <View style={styles.section2}>
-                        <Text style={styles.infoText}>{description_above_services}</Text>
+                        <Text style={styles.infoText}>{formattedDescriptionAbove}</Text>
                     </View>
                 )}
 
