@@ -139,15 +139,18 @@ exports.generateMonthlyInvoices = async (req, res) => {
       include: [{ model: ServicePlanned, as: 'services_planned' }],
     });
 
+    // Zoradenie šablón podľa id_company, aby boli faktúry rovnakej firmy ukladané postupne
+    monthlyInvoices.sort((a, b) => a.id_residential_company - b.id_residential_company);
+
     const createdInvoices = [];
 
     for (const template of monthlyInvoices) {
       // Generate invoice_number based on your logic
-      const invoiceYear = new Date(issue_date).getFullYear();
-
+      let invoiceYear = new Date(issue_date).getFullYear();
       if (billing_month === 12) {
         invoiceYear -= 1;
       }
+
       // Fetch the last invoice number for the current company and year
       const lastInvoice = await Invoice.findOne({
         where: {
