@@ -7,6 +7,9 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
   const [expenseTypeTotals, setExpenseTypeTotals] = useState({});
   const [profit, setProfit] = useState(0);
 
+  // Pomocná funkcia na formátovanie čísla na dve desatinné miesta
+  const formatNumber = (num) => (parseFloat(num) || 0).toFixed(2);
+
   useEffect(() => {
     // Agregácia faktúr podľa statusu (predpokladáme, že faktúry už obsahujú computed "total_price")
     const computedInvoices = invoices.map((invoice) => {
@@ -20,7 +23,7 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
         total_price: totalPrice,
       };
     });
-    // Agregácia faktúr podľa statusu
+
     const invoiceTotals = computedInvoices.reduce((acc, inv) => {
       const status = inv.status || 'unknown';
       const amount = parseFloat(inv.total_price) || 0;
@@ -33,26 +36,19 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
     const filterStart = new Date(fromDate);
     const filterEnd = new Date(toDate);
 
-    // Agregácia výdavkov podľa typu s prepočtom mesacných výdavkov
     const expenseTotals = expenses.reduce((acc, exp) => {
       let effectiveAmount = 0;
       if (exp.type === 'mesacna') {
-        // Pre mesacné výdavky počítame počet mesiacov, počas ktorých je výdavok aktívny v rámci filtrovaného obdobia.
         const expenseStart = new Date(exp.start_date);
-        // Ak nie je definovaný end_date, predpokladáme, že výdavok trvá až do konca filtrovaného obdobia.
         const expenseEnd = exp.end_date ? new Date(exp.end_date) : filterEnd;
-        // Výpočet aktívneho intervalu: od maximálneho z expenseStart a filterStart,
-        // do minimálneho z expenseEnd a filterEnd.
         const activeStart = expenseStart > filterStart ? expenseStart : filterStart;
         const activeEnd = expenseEnd < filterEnd ? expenseEnd : filterEnd;
         if (activeStart <= activeEnd) {
-          // Funkcia na výpočet rozdielu v mesiacoch vrátane oboch mesiacov
           const monthDiff = (activeEnd.getFullYear() - activeStart.getFullYear()) * 12 +
             (activeEnd.getMonth() - activeStart.getMonth()) + 1;
           effectiveAmount = (parseFloat(exp.price) || 0) * monthDiff;
         }
       } else {
-        // Jednorazový výdavok sa počíta len raz
         effectiveAmount = parseFloat(exp.price) || 0;
       }
       const type = exp.type || 'unknown';
@@ -64,7 +60,6 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
     const paidInvoiceTotal = invoiceTotals.paid || 0;
     const expenseTotal = expenseTotals.total || 0;
     setProfit(paidInvoiceTotal - expenseTotal);
-
     setInvoiceStatusTotals(invoiceTotals);
     setExpenseTypeTotals(expenseTotals);
   }, [invoices, expenses, fromDate, toDate]);
@@ -84,23 +79,23 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
         <TableBody>
           <TableRow>
             <TableCell>Created:</TableCell>
-            <TableCell align="right">{invoiceStatusTotals.created || 0} €</TableCell>
+            <TableCell align="right">{formatNumber(invoiceStatusTotals.created)} €</TableCell>
           </TableRow>
           <TableRow>
             <TableCell>Sent:</TableCell>
-            <TableCell align="right">{invoiceStatusTotals.sent || 0} €</TableCell>
+            <TableCell align="right">{formatNumber(invoiceStatusTotals.sent)} €</TableCell>
           </TableRow>
           <TableRow>
             <TableCell>Expired:</TableCell>
-            <TableCell align="right">{invoiceStatusTotals.expired || 0} €</TableCell>
+            <TableCell align="right">{formatNumber(invoiceStatusTotals.expired)} €</TableCell>
           </TableRow>
           <TableRow>
             <TableCell>Paid:</TableCell>
-            <TableCell align="right">{invoiceStatusTotals.paid || 0} €</TableCell>
+            <TableCell align="right">{formatNumber(invoiceStatusTotals.paid)} €</TableCell>
           </TableRow>
           <TableRow>
             <TableCell><strong>Total:</strong></TableCell>
-            <TableCell align="right"><strong>{invoiceStatusTotals.total || 0} €</strong></TableCell>
+            <TableCell align="right"><strong>{formatNumber(invoiceStatusTotals.total)} €</strong></TableCell>
           </TableRow>
         </TableBody>
       </Table>
@@ -113,15 +108,15 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
         <TableBody>
           <TableRow>
             <TableCell>Mesačné:</TableCell>
-            <TableCell align="right">{expenseTypeTotals.mesacna || 0} €</TableCell>
+            <TableCell align="right">{formatNumber(expenseTypeTotals.mesacna)} €</TableCell>
           </TableRow>
           <TableRow>
             <TableCell>Jednorazové:</TableCell>
-            <TableCell align="right">{expenseTypeTotals.jednorazova || 0} €</TableCell>
+            <TableCell align="right">{formatNumber(expenseTypeTotals.jednorazova)} €</TableCell>
           </TableRow>
           <TableRow>
             <TableCell><strong>Total:</strong></TableCell>
-            <TableCell align="right"><strong>{expenseTypeTotals.total || 0} €</strong></TableCell>
+            <TableCell align="right"><strong>{formatNumber(expenseTypeTotals.total)} €</strong></TableCell>
           </TableRow>
         </TableBody>
       </Table>
@@ -134,11 +129,11 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
         <TableBody>
           <TableRow>
             <TableCell>Zaplatené faktúry:</TableCell>
-            <TableCell align="right">{invoiceStatusTotals.paid || 0} €</TableCell>
+            <TableCell align="right">{formatNumber(invoiceStatusTotals.paid)} €</TableCell>
           </TableRow>
           <TableRow>
             <TableCell>Výdavky:</TableCell>
-            <TableCell align="right">{expenseTypeTotals.total || 0} €</TableCell>
+            <TableCell align="right">{formatNumber(expenseTypeTotals.total)} €</TableCell>
           </TableRow>
         </TableBody>
       </Table>
