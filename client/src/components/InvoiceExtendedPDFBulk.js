@@ -378,7 +378,7 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
         {/* Podpisy */}
         <View style={styles.signatureSection}>
           <View style={styles.signature}>
-            <Text>Vyhotovil: <strong>Erika Keszegová</strong></Text>
+            <Text>Vyhotovil: Erika Keszegová</Text>
             <View style={styles.signatureLine} />
           </View>
           <View style={styles.signature}>

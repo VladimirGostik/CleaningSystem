@@ -373,7 +373,7 @@ const InvoicePdf = ({ invoice }) => {
                 <View>
                     <View style={styles.signatureSection}>
                         <View style={styles.signature}>
-                            <Text>Vyhotovil:</Text>
+                            <Text>Vyhotovil: Erika Keszegová</Text>
                             <View style={styles.signatureLine} />
                         </View>
                         <View style={styles.signature}>
