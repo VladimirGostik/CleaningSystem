@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   signatureLine: {
-    marginTop: 10,
+    marginTop: 20,
     borderTopWidth: 1,
     borderColor: '#000',
     width: '80%',
