@@ -10,10 +10,20 @@ import EditInvoiceModal from '../modals/EditInvoiceModal';
 import AddMonthlyInvoicesModal from '../modals/AddMonthlyInvoicesModal';
 import InvoiceFilter from '../components/InvoiceFilter'; // Import the filter component
 import MarkAsPaidModal from '../modals/MarkAsPaidModal'; // Import the MarkAsPaidModal
-import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Importujte BulkInvoiceDocument
-import { pdf } from '@react-pdf/renderer'; // Importujte funkciu pdf
-import { getInvoices, addInvoice, generateMonthlyInvoices, updateInvoice, InvoicesMarkAsSent, InvoicesMarkAsPaid, deleteInvoice, InvoicesBulkMarkAsSent, InvoicesBulkMarkAsPaid, InvoicesBulkDelete} from '../services/invoices';
-
+import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Import BulkInvoiceDocument
+import { pdf } from '@react-pdf/renderer'; // Import the pdf function
+import { 
+  getInvoices, 
+  addInvoice, 
+  generateMonthlyInvoices, 
+  updateInvoice, 
+  InvoicesMarkAsSent, 
+  InvoicesMarkAsPaid, 
+  deleteInvoice, 
+  InvoicesBulkMarkAsSent, 
+  InvoicesBulkMarkAsPaid, 
+  InvoicesBulkDelete 
+} from '../services/invoices';
 
 const Invoices = () => {
   const [allInvoices, setAllInvoices] = useState([]); // All fetched invoices
@@ -31,7 +41,7 @@ const Invoices = () => {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const invoicesPerPage = 10; // Môžete upraviť podľa potreby
+  const [invoicesPerPage, setInvoicesPerPage] = useState(10); // Počet faktúr na stránku, nastaviteľný používateľom
 
   // Fetch invoices from the backend API
   const fetchInvoices = useCallback(async () => {
@@ -39,7 +49,7 @@ const Invoices = () => {
       const response = await getInvoices();
       const invoicesData = response;
 
-      // Handle cases where services might be undefined
+      // Handle cases where services might be undefined and compute total_price
       const invoicesWithTotal = invoicesData.map((invoice) => {
         const totalPrice = (invoice.services || []).reduce((acc, service) => {
           const price = parseFloat(service.price) || 0;
@@ -86,7 +96,7 @@ const Invoices = () => {
 
   const handleMarkAsPaid = async (invoiceId, paymentDate) => {
     try {
-      await InvoicesMarkAsPaid(invoiceId, paymentDate)
+      await InvoicesMarkAsPaid(invoiceId, paymentDate);
       fetchInvoices();
       toast.success('Faktúra označená ako zaplatená');
     } catch (error) {
@@ -110,7 +120,6 @@ const Invoices = () => {
 
   const handleUpdateInvoice = async (invoiceId, data) => {
     try {
-      // Send PUT request to update the invoice
       await updateInvoice(invoiceId, data);
       setShowEditInvoiceModal(false);
       setSelectedInvoiceId(null);
@@ -233,7 +242,6 @@ const Invoices = () => {
     }
   };
 
-
   const handleBulkMarkAsSent = async () => {
     if (selectedInvoiceIds.length === 0) {
       toast.warn('Žiadne faktúry na označenie');
@@ -255,8 +263,6 @@ const Invoices = () => {
       toast.warn('Žiadne faktúry na označenie');
       return;
     }
-  
-    // Otvorenie modálu
     setShowBulkMarkAsPaidModal(true);
   };
 
@@ -299,15 +305,9 @@ const Invoices = () => {
     }
   
     try {
-      setIsGeneratingPDF(true); // Začiatok načítavania
-  
-      // Získanie vybraných faktúr
+      setIsGeneratingPDF(true);
       const selectedInvoices = allInvoices.filter(invoice => selectedInvoiceIds.includes(invoice.id));
-  
-      // Generovanie PDF dokumentu
       const blob = await pdf(<BulkInvoiceDocument invoices={selectedInvoices} />).toBlob();
-  
-      // Vytvorenie URL pre blob a stiahnutie PDF
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -315,16 +315,14 @@ const Invoices = () => {
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-  
       toast.success('Bulk PDF úspešne stiahnutý');
     } catch (error) {
       console.error('Error generating bulk PDF:', error);
       toast.error('Chyba pri generovaní PDF');
     } finally {
-      setIsGeneratingPDF(false); // Koniec načítavania
+      setIsGeneratingPDF(false);
     }
   };
-  
 
   // Pagination Logic
   const indexOfLastInvoice = currentPage * invoicesPerPage;
@@ -370,7 +368,7 @@ const Invoices = () => {
         <div className="flex gap-2">
           <button
             className="bg-green-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-green-700 transition duration-300"
-            onClick={() => setShowAddInvoiceModal(true)} // Show the modal when clicked
+            onClick={() => setShowAddInvoiceModal(true)}
           >
             + Pridať faktúru
           </button>
@@ -383,18 +381,42 @@ const Invoices = () => {
         </div>
       </div>
 
-      {/* Invoice Table */}
-      <div className="bg-white w-full p-4 shadow-xl rounded-2xl">
+      {/* Invoice Filter */}
+      <div className="mb-4">
         <InvoiceFilter invoices={allInvoices} onFilter={handleFilterChange} />
-        {selectedInvoiceIds.length > 0 && (
+      </div>
+
+      {/* Select for invoices per page */}
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="invoicesPerPage" className="font-semibold">
+          Počet faktúr na stránku:
+        </label>
+        <select
+          id="invoicesPerPage"
+          value={invoicesPerPage}
+          onChange={(e) => {
+            setInvoicesPerPage(Number(e.target.value));
+            setCurrentPage(1); // reset na prvú stránku
+          }}
+          className="border rounded px-2 py-1"
+        >
+          <option value={10}>10</option>
+          <option value={20}>20</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+          <option value={200}>200</option>
+        </select>
+      </div>
+
+      {/* Bulk Actions */}
+      {selectedInvoiceIds.length > 0 && (
         <div className="mb-4">
           <button
             className="bg-gray-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-gray-700 transition duration-300"
             onClick={() => setShowBulkActions(prev => !prev)}
           >
-          Akcie ({selectedInvoiceIds.length})
+            Akcie ({selectedInvoiceIds.length})
           </button>
-
           {showBulkActions && (
             <div className="mt-2 flex gap-2">
               <button
@@ -425,6 +447,9 @@ const Invoices = () => {
           )}
         </div>
       )}
+
+      {/* Invoice Table */}
+      <div className="bg-white w-full p-4 shadow-xl rounded-2xl">
         <InvoiceTableExtended
           invoices={currentInvoices}
           onEdit={handleEdit}
@@ -454,10 +479,7 @@ const Invoices = () => {
 
       {/* Modals */}
       {showAddInvoiceModal && (
-        <AddInvoiceModal
-          closeModal={() => setShowAddInvoiceModal(false)}
-          onSubmit={handleAddInvoice}
-        />
+        <AddInvoiceModal closeModal={() => setShowAddInvoiceModal(false)} onSubmit={handleAddInvoice} />
       )}
       {showEditInvoiceModal && (
         <EditInvoiceModal
@@ -470,16 +492,10 @@ const Invoices = () => {
         />
       )}
       {showAddMonthlyInvoicesModal && (
-        <AddMonthlyInvoicesModal
-          closeModal={() => setShowAddMonthlyInvoicesModal(false)}
-          onSubmit={handleAddMonthlyInvoices}
-        />
+        <AddMonthlyInvoicesModal closeModal={() => setShowAddMonthlyInvoicesModal(false)} onSubmit={handleAddMonthlyInvoices} />
       )}
       {showBulkMarkAsPaidModal && (
-        <MarkAsPaidModal
-          closeModal={() => setShowBulkMarkAsPaidModal(false)}
-          onSubmit={handleBulkMarkAsPaidSubmit}
-        />
+        <MarkAsPaidModal closeModal={() => setShowBulkMarkAsPaidModal(false)} onSubmit={handleBulkMarkAsPaidSubmit} />
       )}
       {isGeneratingPDF && (
         <div className="flex justify-center items-center">

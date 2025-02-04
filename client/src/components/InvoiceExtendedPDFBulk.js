@@ -186,6 +186,22 @@ const styles = StyleSheet.create({
   },
 });
 
+const formatDescription = (desc, billing_month, issue_date) => {
+  if (!desc) return '';
+  const formatted = desc
+    .replace(/{mesiac\/rok}/g, () => {
+      const invoiceDateObj = new Date(issue_date);
+      let invoiceYear = invoiceDateObj.getFullYear();
+      const monthNum = parseInt(billing_month, 10);
+      if (monthNum === 12) {
+        invoiceYear = invoiceYear - 1;
+      }
+      return `${billing_month}/${invoiceYear}`;
+    })
+    .replace(/{mesiac}/g, billing_month);
+  return formatted;
+}; 
+
 const InvoiceExtendedPDFBulk = ({ invoice }) => {
   const {
     invoice_number,
@@ -238,6 +254,9 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
         };
       })
     : [];
+
+  const formattedDescriptionAbove = formatDescription(description_above_services, billing_month, issue_date);
+
 
   const totalPrice = formattedServices.reduce((acc, service) => acc + service.price * service.quantity, 0);
 
@@ -312,9 +331,9 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
         </Text>
       </View>
 
-      {description_above_services && (
+      {formattedDescriptionAbove && (
         <View style={styles.section2}>
-          <Text style={styles.infoText}>{description_above_services}</Text>
+          <Text style={styles.infoText}>{formattedDescriptionAbove}</Text>
         </View>
       )}
 
@@ -359,7 +378,7 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
         {/* Podpisy */}
         <View style={styles.signatureSection}>
           <View style={styles.signature}>
-            <Text>Vyhotovil:</Text>
+            <Text>Vyhotovil: <strong>Erika Keszegová</strong></Text>
             <View style={styles.signatureLine} />
           </View>
           <View style={styles.signature}>
