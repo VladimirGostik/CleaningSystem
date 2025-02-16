@@ -1,8 +1,18 @@
 // src/components/CompanyBox.js
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Table, TableBody, TableCell, TableRow } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+  IconButton,
+  Menu,
+  MenuItem,
+} from '@mui/material';
 
-const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
+const CompanyBox = ({ company, invoices, expenses, fromDate, toDate, onEdit, onDelete }) => {
   const [invoiceStatusTotals, setInvoiceStatusTotals] = useState({});
   const [expenseTypeTotals, setExpenseTypeTotals] = useState({});
   const [profit, setProfit] = useState(0);
@@ -10,8 +20,30 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
   // Pomocná funkcia na formátovanie čísla na dve desatinné miesta
   const formatNumber = (num) => (parseFloat(num) || 0).toFixed(2);
 
+  // Stav pre menu (3 bodky)
+  const [anchorEl, setAnchorEl] = useState(null);
+  const menuOpen = Boolean(anchorEl);
+
+  const handleMenuClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleEdit = () => {
+    handleMenuClose();
+    if (onEdit) onEdit(company.id);
+  };
+
+  const handleDelete = () => {
+    handleMenuClose();
+    if (onDelete) onDelete(company.id);
+  };
+
   useEffect(() => {
-    // Agregácia faktúr podľa statusu (predpokladáme, že faktúry už obsahujú computed "total_price")
+    // Prepočet total_price pre každú faktúru (ak obsahuje pole "services")
     const computedInvoices = invoices.map((invoice) => {
       const totalPrice = (invoice.services || []).reduce((acc, service) => {
         const price = parseFloat(service.price) || 0;
@@ -44,8 +76,10 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
         const activeStart = expenseStart > filterStart ? expenseStart : filterStart;
         const activeEnd = expenseEnd < filterEnd ? expenseEnd : filterEnd;
         if (activeStart <= activeEnd) {
-          const monthDiff = (activeEnd.getFullYear() - activeStart.getFullYear()) * 12 +
-            (activeEnd.getMonth() - activeStart.getMonth()) + 1;
+          const monthDiff =
+            (activeEnd.getFullYear() - activeStart.getFullYear()) * 12 +
+            (activeEnd.getMonth() - activeStart.getMonth()) +
+            1;
           effectiveAmount = (parseFloat(exp.price) || 0) * monthDiff;
         }
       } else {
@@ -65,7 +99,44 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
   }, [invoices, expenses, fromDate, toDate]);
 
   return (
-    <Box sx={{ border: '1px solid #ddd', borderRadius: '8px', p: 2, boxShadow: 2, bgcolor: 'white', mb: 2 }}>
+    <Box
+      sx={{
+        border: '1px solid #ddd',
+        borderRadius: '8px',
+        p: 2,
+        boxShadow: 2,
+        bgcolor: 'white',
+        mb: 2,
+        position: 'relative', // pre absolútne pozicovanie menu
+      }}
+    >
+      {/* Ikonka s 3 bodkami (vertikálny ellipsis) */}
+      <IconButton
+        aria-label="more"
+        onClick={handleMenuClick}
+        sx={{ position: 'absolute', top: 8, right: 8 }}
+      >
+        <Typography variant="h6" component="span" sx={{ lineHeight: 1 }}>
+          ⋮
+        </Typography>
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        open={menuOpen}
+        onClose={handleMenuClose}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <MenuItem onClick={handleEdit}>Upraviť</MenuItem>
+        <MenuItem onClick={handleDelete}>Vymazať</MenuItem>
+      </Menu>
+
       {/* Názov firmy */}
       <Typography variant="h6" align="center" gutterBottom>
         {company.company_name}
@@ -94,8 +165,12 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
             <TableCell align="right">{formatNumber(invoiceStatusTotals.paid)} €</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell><strong>Total:</strong></TableCell>
-            <TableCell align="right"><strong>{formatNumber(invoiceStatusTotals.total)} €</strong></TableCell>
+            <TableCell>
+              <strong>Total:</strong>
+            </TableCell>
+            <TableCell align="right">
+              <strong>{formatNumber(invoiceStatusTotals.total)} €</strong>
+            </TableCell>
           </TableRow>
         </TableBody>
       </Table>
@@ -115,8 +190,12 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate }) => {
             <TableCell align="right">{formatNumber(expenseTypeTotals.jednorazova)} €</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell><strong>Total:</strong></TableCell>
-            <TableCell align="right"><strong>{formatNumber(expenseTypeTotals.total)} €</strong></TableCell>
+            <TableCell>
+              <strong>Total:</strong>
+            </TableCell>
+            <TableCell align="right">
+              <strong>{formatNumber(expenseTypeTotals.total)} €</strong>
+            </TableCell>
           </TableRow>
         </TableBody>
       </Table>

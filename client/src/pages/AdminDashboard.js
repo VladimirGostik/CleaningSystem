@@ -1,10 +1,12 @@
 // src/pages/CompanyDashboard.js
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../layouts/AdminLayout';
-import { getCompanies } from '../services/companyService';
+import { getCompanies, deleteCompany } from '../services/companyService';
 import { getInvoices } from '../services/invoices';
 import { getExpenses } from '../services/expansesService';
 import CompanyBox from '../components/CompanyBox';
+import EditCompanyModal from '../modals/EditCompanyModal';
+import { toast } from 'react-toastify';
 
 const CompanyDashboard = () => {
   const [companies, setCompanies] = useState([]);
@@ -13,6 +15,10 @@ const CompanyDashboard = () => {
   // Predvolená časová perióda – uprav si podľa potreby
   const [fromDate, setFromDate] = useState('2025-01-01');
   const [toDate, setToDate] = useState('2025-12-31');
+
+  // Stav pre vybranú firmu a zobrazenie modálu pre úpravu firmy
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
 
   useEffect(() => {
     fetchCompanies();
@@ -23,7 +29,6 @@ const CompanyDashboard = () => {
   const fetchCompanies = async () => {
     try {
       const res = await getCompanies();
-      // Predpokladáme, že API vracia dáta v res.data, inak použi priamo res
       setCompanies(res.data || res);
     } catch (error) {
       console.error('Error fetching companies:', error);
@@ -42,19 +47,40 @@ const CompanyDashboard = () => {
   const fetchExpenses = async () => {
     try {
       const res = await getExpenses();
-      console.log(res.data);
       setExpenses(res.data);
     } catch (error) {
       console.error('Error fetching expenses:', error);
     }
   };
 
-  // Filtrovanie faktúr a výdavkov podľa vybraného časového obdobia.
-  // Predpokladáme, že faktúry majú property issue_date a výdavky vlastnosť start_date vo formáte ISO.
+  // Filtrovanie faktúr podľa vybraného časového obdobia (issue_date)
   const filteredInvoices = invoices.filter(inv => {
     const issueDate = new Date(inv.issue_date);
     return issueDate >= new Date(fromDate) && issueDate <= new Date(toDate);
   });
+
+  // Callback pre otvorenie modálu pre úpravu firmy
+  const handleEditCompany = (companyId) => {
+    const companyToEdit = companies.find(c => c.id === companyId);
+    if (companyToEdit) {
+      setSelectedCompany(companyToEdit);
+      setShowEditCompanyModal(true);
+    }
+  };
+
+  // Callback pre vymazanie firmy
+  const handleDeleteCompany = async (companyId) => {
+    if (window.confirm('Ste si istý, že chcete vymazať túto firmu?')) {
+      try {
+        await deleteCompany(companyId);
+        toast.success('Firma bola úspešne vymazaná');
+        fetchCompanies();
+      } catch (error) {
+        console.error('Error deleting company:', error);
+        toast.error('Chyba pri vymazávaní firmy');
+      }
+    }
+  };
 
   return (
     <AdminLayout>
@@ -89,15 +115,28 @@ const CompanyDashboard = () => {
             <CompanyBox
               key={company.id}
               company={company}
-              // Filtrovanie faktúr a výdavkov podľa firmy
               invoices={filteredInvoices.filter(inv => inv.id_company === company.id)}
               expenses={expenses.filter(exp => exp.id_company === company.id)}
               fromDate={fromDate}
               toDate={toDate}
+              onEdit={handleEditCompany}
+              onDelete={handleDeleteCompany}
             />
           ))}
         </div>
       </div>
+
+      {/* Edit Company Modal */}
+      {showEditCompanyModal && selectedCompany && (
+        <EditCompanyModal
+          closeModal={() => {
+            setShowEditCompanyModal(false);
+            setSelectedCompany(null);
+          }}
+          company={selectedCompany}
+          fetchCompanies={fetchCompanies}
+        />
+      )}
     </AdminLayout>
   );
 };
