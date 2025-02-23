@@ -1,6 +1,22 @@
 // controllers/expenseController.js
 const { Expense, Company } = require('../models');
 
+exports.getAllExpenses = async (req, res) => {
+  try {
+    // Načítame všetky výdavky so spoločnosťou (ak je potrebné)
+    const expenses = await Expense.findAll({
+      include: [{
+        model: Company,
+        attributes: ['id', ['company_name', 'name']]
+      }],
+    });
+    res.status(200).json(expenses);
+  } catch (error) {
+    console.error('Error fetching all expenses:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 exports.getExpenses = async (req, res) => {
   try {
     const { month, year } = req.query;
@@ -50,19 +66,22 @@ exports.getExpenses = async (req, res) => {
   }
 };
 
-
 exports.createExpense = async (req, res) => {
   try {
     const { id_company, name, description, price, deductibility, type, start_date, end_date } = req.body;
     if (!id_company || !name || !price || !deductibility || !type || !start_date) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+    // Vypočítame final_price: cena * (deductibility / 100)
+    const computedFinalPrice = parseFloat(price) * (parseFloat(deductibility) / 100);
+
     const expense = await Expense.create({
       id_company,
       name,
       description,
       price,
       deductibility,
+      final_price: computedFinalPrice,
       type,
       start_date,
       end_date: type === 'jednorazova' ? null : end_date,
@@ -82,11 +101,13 @@ exports.updateExpense = async (req, res) => {
     if (!expense) {
       return res.status(404).json({ error: 'Expense not found' });
     }
+    // Aktualizácia hodnôt vrátane final_price
     expense.id_company = id_company;
     expense.name = name;
     expense.description = description;
     expense.price = price;
     expense.deductibility = deductibility;
+    expense.final_price = parseFloat(price) * (parseFloat(deductibility) / 100);
     expense.type = type;
     expense.start_date = start_date;
     expense.end_date = type === 'jednorazova' ? null : end_date;
@@ -110,5 +131,27 @@ exports.deleteExpense = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
+  }
+};
+
+exports.importExpenses = async (req, res) => {
+  try {
+    const expensesData = req.body.expenses; // Očakávame pole výdavkov
+    if (!Array.isArray(expensesData) || expensesData.length === 0) {
+      return res.status(400).json({ error: 'Expenses data must be a non-empty array.' });
+    }
+
+    // Pred vytvorením každého výdavku vypočítame aj final_price
+    const expensesWithFinalPrice = expensesData.map(expData => {
+      const computedFinalPrice = parseFloat(expData.price) * (parseFloat(expData.deductibility) / 100);
+      return { ...expData, final_price: computedFinalPrice };
+    });
+
+    // Vytvorenie výdavkov pomocou bulkCreate
+    const createdExpenses = await Expense.bulkCreate(expensesWithFinalPrice);
+    res.status(201).json({ message: 'Expenses imported successfully', expenses: createdExpenses });
+  } catch (error) {
+    console.error('Error importing expenses:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 };
