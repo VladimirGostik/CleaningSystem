@@ -24,6 +24,24 @@ export const getInvoiceById = async (id) => {
   }
 };
 
+export const sendTransactionsToBackend = async (transactions) => {
+  try {
+    // Vyčistiť cache pre unlinkedTransactions pred odoslaním požiadavky
+    localStorage.removeItem('unlinkedTransactions');
+
+    // Odoslanie požiadavky na aktualizáciu faktúr na základe transakcií
+    const response = await axiosInstance.put('/invoices/update-from-transactions', { transactions });
+
+    // Uložiť nové unlinkedTransactions do localStorage po úspešnom spracovaní
+    localStorage.setItem('unlinkedTransactions', JSON.stringify(response.data.unlinkedTransactions));
+    console.log('unlinkedTransactions:', response.data.unlinkedTransactions);
+
+    return response.data;
+  } catch (error) {
+    console.error('Error updating invoices from transactions:', error);
+  }
+};
+
 // 📜 Získanie všetkých faktúr
 export const getInvoices = async () => {
   try {

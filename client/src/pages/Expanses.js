@@ -9,6 +9,7 @@ import {
 } from '../modals/ExpenseModals';
 import { getExpenses, createExpense, updateExpense, deleteExpense } from '../services/expansesService';
 import { getCompanies } from '../services/companyService';
+import ImportExpenseRecords from '../modals/ImportExpenseRecords';
 
 const Expenses = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -17,7 +18,7 @@ const Expenses = () => {
   const [showOneTimeModal, setShowOneTimeModal] = useState(false);
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
-
+  const [showImportModal, setShowImportModal] = useState(false);
   // Nové stavy pre filtre:
   const [selectedCompany, setSelectedCompany] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,6 +103,20 @@ const Expenses = () => {
     }
   };
 
+  const handleImportSubmit = async (importedExpenses) => {
+    // Predpokladáme, že importedExpenses je pole objektov s údajmi z parsovaného súboru
+    try {
+      // Môžete vytvoriť dávkové volanie backendu alebo iterovať a volať createExpense pre každý výdavok
+      for (const expenseData of importedExpenses) {
+        await createExpense(expenseData);
+      }
+      setShowImportModal(false);
+      fetchExpenses();
+    } catch (err) {
+      console.error('Chyba pri importovaní výdavkov:', err);
+    }
+  };
+
   // Filterovanie výdavkov podľa vybranej firmy a vyhľadávacieho termínu v názve
   const filteredExpenses = expenses.filter(expense => {
     const matchesCompany = selectedCompany
@@ -136,6 +151,12 @@ const Expenses = () => {
             className="bg-green-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-green-700 transition duration-300"
           >
             + Pridať mesačný výdavok
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="bg-blue-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-blue-700 transition duration-300"
+          >
+            + Importovať výdavky
           </button>
         </div>
       </div>
@@ -219,6 +240,14 @@ const Expenses = () => {
           expense={editingExpense}
         />
       )}
+
+      {showImportModal && (
+        <ImportExpenseRecords
+          onClose={() => setShowImportModal(false)}
+          onSubmit={handleImportSubmit}
+          companies={companies}
+        />
+        )}
     </AdminLayout>
   );
 };

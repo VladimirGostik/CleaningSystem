@@ -1,6 +1,6 @@
 // src/pages/Invoices.js
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import ImportExpensesModal from '../modals/ImportExpensesModal'; // Nový import
 import AdminLayout from '../layouts/AdminLayout';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -22,7 +22,8 @@ import {
   deleteInvoice, 
   InvoicesBulkMarkAsSent, 
   InvoicesBulkMarkAsPaid, 
-  InvoicesBulkDelete 
+  InvoicesBulkDelete,
+  sendTransactionsToBackend
 } from '../services/invoices';
 
 const Invoices = () => {
@@ -34,6 +35,7 @@ const Invoices = () => {
   const [showAddMonthlyInvoicesModal, setShowAddMonthlyInvoicesModal] = useState(false); // Add Monthly Invoices Modal
   const [showBulkMarkAsPaidModal, setShowBulkMarkAsPaidModal] = useState(false); // State to control bulk MarkAsPaidModal
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false); // Stav pre import
 
   // Bulk Actions State
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]); // IDs of selected invoices
@@ -378,6 +380,12 @@ const Invoices = () => {
           >
             + Pridať mesačné faktúry
           </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="bg-blue-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-blue-700 transition duration-300"
+          >
+            Import XML
+          </button>
         </div>
       </div>
 
@@ -489,6 +497,15 @@ const Invoices = () => {
           }}
           onSubmit={handleUpdateInvoice}
           invoiceId={selectedInvoiceId}
+        />
+      )}
+      {/* Modál pre import XML s výdavkami */}
+      {showImportModal && (
+        <ImportExpensesModal
+          closeModal={() => setShowImportModal(false)}
+          onImport={(transactions) => {
+            sendTransactionsToBackend(transactions);
+          }}
         />
       )}
       {showAddMonthlyInvoicesModal && (

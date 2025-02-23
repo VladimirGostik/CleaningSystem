@@ -41,7 +41,6 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate, onEdit, onD
     handleMenuClose();
     if (onDelete) onDelete(company.id);
   };
-
   useEffect(() => {
     // Prepočet total_price pre každú faktúru (ak obsahuje pole "services")
     const computedInvoices = invoices.map((invoice) => {
@@ -55,7 +54,7 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate, onEdit, onD
         total_price: totalPrice,
       };
     });
-
+  
     const invoiceTotals = computedInvoices.reduce((acc, inv) => {
       const status = inv.status || 'unknown';
       const amount = parseFloat(inv.total_price) || 0;
@@ -63,15 +62,19 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate, onEdit, onD
       acc.total = (acc.total || 0) + amount;
       return acc;
     }, {});
-
+  
     // Pre výdavky definujeme filtrované obdobie
     const filterStart = new Date(fromDate);
     const filterEnd = new Date(toDate);
-
+  
+    // Výpočet súčtov výdavkov
     const expenseTotals = expenses.reduce((acc, exp) => {
       let effectiveAmount = 0;
+      const expenseDate = new Date(exp.start_date);
+  
+      // Mesačné výdavky
       if (exp.type === 'mesacna') {
-        const expenseStart = new Date(exp.start_date);
+        const expenseStart = expenseDate;
         const expenseEnd = exp.end_date ? new Date(exp.end_date) : filterEnd;
         const activeStart = expenseStart > filterStart ? expenseStart : filterStart;
         const activeEnd = expenseEnd < filterEnd ? expenseEnd : filterEnd;
@@ -82,15 +85,22 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate, onEdit, onD
             1;
           effectiveAmount = (parseFloat(exp.price) || 0) * monthDiff;
         }
-      } else {
-        effectiveAmount = parseFloat(exp.price) || 0;
       }
-      const type = exp.type || 'unknown';
-      acc[type] = (acc[type] || 0) + effectiveAmount;
-      acc.total = (acc.total || 0) + effectiveAmount;
+      // Jednorazové výdavky
+      else if (exp.type === 'jednorazova') {
+        if (expenseDate >= filterStart && expenseDate <= filterEnd) {
+          effectiveAmount = parseFloat(exp.price) || 0;
+        }
+      }
+      // Ak je effectiveAmount > 0, pridaj do súčtov
+      if (effectiveAmount > 0) {
+        const type = exp.type;
+        acc[type] = (acc[type] || 0) + effectiveAmount;
+        acc.total = (acc.total || 0) + effectiveAmount;
+      }
       return acc;
     }, {});
-
+  
     const paidInvoiceTotal = invoiceTotals.paid || 0;
     const expenseTotal = expenseTotals.total || 0;
     setProfit(paidInvoiceTotal - expenseTotal);

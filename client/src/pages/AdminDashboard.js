@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../layouts/AdminLayout';
 import { getCompanies, deleteCompany } from '../services/companyService';
 import { getInvoices } from '../services/invoices';
-import { getExpenses } from '../services/expansesService';
+import { getExpensesAll } from '../services/expansesService';
 import CompanyBox from '../components/CompanyBox';
 import EditCompanyModal from '../modals/EditCompanyModal';
 import { toast } from 'react-toastify';
@@ -46,7 +46,8 @@ const CompanyDashboard = () => {
 
   const fetchExpenses = async () => {
     try {
-      const res = await getExpenses();
+      const res = await getExpensesAll();
+      console.log(res.data);
       setExpenses(res.data);
     } catch (error) {
       console.error('Error fetching expenses:', error);

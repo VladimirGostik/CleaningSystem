@@ -1,6 +1,6 @@
 // controllers/invoiceController.js
-const { Invoice, MonthlyInvoice, Service, ServicePlanned } = require('../models');
-const { Op } = require('sequelize');
+const { Sequelize, Op } = require('sequelize');
+const { Invoice, MonthlyInvoice, Service, ServicePlanned , Company} = require('../models');
 
 // Vytvorenie novej faktúry s pridruženými službami
 exports.createInvoice = async (req, res) => {
@@ -235,6 +235,75 @@ exports.generateMonthlyInvoices = async (req, res) => {
   }
 };
 
+exports.updateInvoicesFromTransactions = async (req, res) => {
+  try {
+    const transactions = req.body.transactions;
+    const updatedInvoices = [];
+    const unlinkedTransactions = [];
+
+    for (const tx of transactions) {
+      console.log(`Spracovávam transakciu: ${tx.vs}, IBAN: ${tx.creditorAcct}`);
+
+      // Nájdeme firmu na základe IBAN-u
+      const foundCompany = await Company.findOne({
+        where: Sequelize.where(
+          Sequelize.fn('REPLACE', Sequelize.col('company_iban'), ' ', ''), 
+          tx.creditorAcct
+        ),
+      });
+
+      if (!foundCompany) {
+        console.error("Firma nenájdená pre IBAN:", tx.creditorAcct);
+        unlinkedTransactions.push(tx);
+        continue;
+      }
+
+      // Overenie formátu VS (minimálne 4 znaky)
+      if (tx.vs.length < 4) {
+        console.error("Neplatný formát VS:", tx.vs);
+        unlinkedTransactions.push(tx);
+        continue;
+      }
+
+      // Nájdeme faktúru pre danú firmu s daným VS
+      const invoice = await Invoice.findOne({
+        where: {
+          id_company: foundCompany.id,
+          invoice_number: tx.vs,
+        },
+      });
+
+      if (!invoice) {
+        console.error("Faktúra nenájdená:", tx.vs, "pre firmu:", foundCompany.company_name);
+        unlinkedTransactions.push(tx);
+        continue;
+      }
+
+      // Kontrola, či faktúra už nie je zaplatená
+      if (invoice.status === 'paid') {
+        console.log(`Faktúra ${tx.vs} už bola zaplatená.`);
+        continue; // Preskočíme aktualizáciu
+      }
+
+      // Aktualizácia faktúry
+      invoice.status = 'paid';
+      invoice.payment_date = tx.paymentDate;
+      await invoice.save();
+      updatedInvoices.push(invoice);
+      console.log(`Faktúra ${tx.vs} bola úspešne aktualizovaná.`);
+    }
+
+    res.status(200).json({
+      message: "Faktúry úspešne aktualizované.",
+      updatedInvoices,
+      unlinkedTransactions,
+    });
+  } catch (error) {
+    console.error("Error updating invoices from transactions:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 exports.bulkUpdateStatus = async (req, res) => {
   try {
     const { invoiceIds, status, payment_date } = req.body;
@@ -314,6 +383,50 @@ exports.deleteInvoice = async (req, res) => {
     res.status(200).json({ message: 'Invoice deleted successfully' });
   } catch (error) {
     console.error('Error deleting invoice:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// Označenie faktúry ako zaplatené
+exports.markInvoiceAsPaid = async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+    const { payment_date } = req.body;
+
+    const invoice = await Invoice.findByPk(invoiceId);
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Aktualizácia statusu a dátumu zaplatenia
+    invoice.status = 'paid';
+    invoice.payment_date = payment_date;
+    await invoice.save();
+
+    res.status(200).json(invoice);
+  } catch (error) {
+    console.error('Error marking invoice as paid:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// Označenie faktúry ako odoslané
+exports.markInvoiceAsSent = async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+
+    const invoice = await Invoice.findByPk(invoiceId);
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Aktualizácia statusu na "sent"
+    invoice.status = 'sent';
+    await invoice.save();
+
+    res.status(200).json(invoice);
+  } catch (error) {
+    console.error('Error marking invoice as sent:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
