@@ -238,54 +238,78 @@ exports.generateMonthlyInvoices = async (req, res) => {
 exports.updateInvoicesFromTransactions = async (req, res) => {
   try {
     const transactions = req.body.transactions;
+    
+    if (!Array.isArray(transactions)) {
+      return res.status(400).json({ error: "'transactions' must be an array" });
+    }
+    
     const updatedInvoices = [];
     const unlinkedTransactions = [];
+    const wrongPriceTransactions = []; // Pre transakcie s nesúladom ceny
 
     for (const tx of transactions) {
       console.log(`Spracovávam transakciu: ${tx.vs}, IBAN: ${tx.creditorAcct}`);
 
-      // Nájdeme firmu na základe IBAN-u
+      // Nájdeme firmu na základe IBAN-u (odstránime medzery)
       const foundCompany = await Company.findOne({
         where: Sequelize.where(
-          Sequelize.fn('REPLACE', Sequelize.col('company_iban'), ' ', ''), 
+          Sequelize.fn('REPLACE', Sequelize.col('company_iban'), ' ', ''),
           tx.creditorAcct
         ),
       });
-
       if (!foundCompany) {
         console.error("Firma nenájdená pre IBAN:", tx.creditorAcct);
-        unlinkedTransactions.push(tx);
+        unlinkedTransactions.push({ ...tx, reason: "Firma nenájdená" });
         continue;
       }
 
       // Overenie formátu VS (minimálne 4 znaky)
-      if (tx.vs.length < 4) {
+      if (!tx.vs || tx.vs.length < 4) {
         console.error("Neplatný formát VS:", tx.vs);
-        unlinkedTransactions.push(tx);
+        unlinkedTransactions.push({ ...tx, reason: "Neplatný formát VS" });
         continue;
       }
 
-      // Nájdeme faktúru pre danú firmu s daným VS
+      // Nájdeme faktúru pre danú firmu s daným invoice_number (priamo podľa VS)
       const invoice = await Invoice.findOne({
         where: {
           id_company: foundCompany.id,
           invoice_number: tx.vs,
         },
+        include: [{ model: Service, as: 'services' }],
       });
-
       if (!invoice) {
         console.error("Faktúra nenájdená:", tx.vs, "pre firmu:", foundCompany.company_name);
-        unlinkedTransactions.push(tx);
+        unlinkedTransactions.push({ ...tx, reason: "Faktúra nenájdená" });
         continue;
       }
 
-      // Kontrola, či faktúra už nie je zaplatená
+      // Ak je faktúra už zaplatená, preskočíme ju
       if (invoice.status === 'paid') {
         console.log(`Faktúra ${tx.vs} už bola zaplatená.`);
-        continue; // Preskočíme aktualizáciu
+        continue;
       }
 
-      // Aktualizácia faktúry
+      // Prevedieme transakčnú sumu na číslo
+      const transactionAmount = parseFloat(tx.amount) || 0;
+
+      const computedSumRaw = invoice.services.reduce((acc, service) => {
+        const price = parseFloat(service.price) || 0;
+        const quantity = parseInt(service.quantity, 10) || 0;
+        return acc + price * quantity;
+      }, 0);
+
+      const computedSum = computedSumRaw.toFixed(2);
+
+      if (Math.abs(transactionAmount - computedSum) > 0.01) {
+        console.error(
+          `Faktúra ${tx.vs} má nesedúcu sumu: transakčná ${transactionAmount} vs. uložená ${computedSum}`
+        );
+        wrongPriceTransactions.push({ ...tx, computedSum, reason: "Nesúlad sumy", invoice_id: invoice.id });
+        continue;
+      }
+
+      // Ak suma sedí, aktualizujeme faktúru
       invoice.status = 'paid';
       invoice.payment_date = tx.paymentDate;
       await invoice.save();
@@ -297,12 +321,14 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
       message: "Faktúry úspešne aktualizované.",
       updatedInvoices,
       unlinkedTransactions,
+      wrongPriceTransactions,
     });
   } catch (error) {
     console.error("Error updating invoices from transactions:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 
 exports.bulkUpdateStatus = async (req, res) => {
   try {

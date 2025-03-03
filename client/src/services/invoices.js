@@ -34,8 +34,7 @@ export const sendTransactionsToBackend = async (transactions) => {
 
     // Uložiť nové unlinkedTransactions do localStorage po úspešnom spracovaní
     localStorage.setItem('unlinkedTransactions', JSON.stringify(response.data.unlinkedTransactions));
-    console.log('unlinkedTransactions:', response.data.unlinkedTransactions);
-
+    localStorage.setItem('wrongPriceTransactions', JSON.stringify(response.data.wrongPriceTransactions));
     return response.data;
   } catch (error) {
     console.error('Error updating invoices from transactions:', error);
