@@ -159,24 +159,24 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate, onEdit, onD
       <Table size="small">
         <TableBody>
           <TableRow>
-            <TableCell>Created:</TableCell>
+            <TableCell>Vytvorené:</TableCell>
             <TableCell align="right">{formatNumber(invoiceStatusTotals.created)} €</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Sent:</TableCell>
+            <TableCell>Odovzdané:</TableCell>
             <TableCell align="right">{formatNumber(invoiceStatusTotals.sent)} €</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Expired:</TableCell>
+            <TableCell>Vypršané:</TableCell>
             <TableCell align="right">{formatNumber(invoiceStatusTotals.expired)} €</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell>Paid:</TableCell>
+            <TableCell>Zaplatené:</TableCell>
             <TableCell align="right">{formatNumber(invoiceStatusTotals.paid)} €</TableCell>
           </TableRow>
           <TableRow>
             <TableCell>
-              <strong>Total:</strong>
+              <strong>Celkovo:</strong>
             </TableCell>
             <TableCell align="right">
               <strong>{formatNumber(invoiceStatusTotals.total)} €</strong>
