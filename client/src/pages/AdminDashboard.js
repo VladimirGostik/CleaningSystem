@@ -5,6 +5,7 @@ import { getCompanies, deleteCompany } from '../services/companyService';
 import { getInvoices } from '../services/invoices';
 import { getExpensesAll } from '../services/expansesService';
 import CompanyBox from '../components/CompanyBox';
+import AddCompanyModal from '../modals/AddCompanyModal';
 import EditCompanyModal from '../modals/EditCompanyModal';
 import { toast } from 'react-toastify';
 
@@ -16,6 +17,8 @@ const CompanyDashboard = () => {
   const [fromDate, setFromDate] = useState('2025-01-01');
   const [toDate, setToDate] = useState('2025-12-31');
 
+  // Stav pre zobrazenie modálu pre pridanie novej firmy
+  const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
   // Stav pre vybranú firmu a zobrazenie modálu pre úpravu firmy
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
@@ -86,7 +89,15 @@ const CompanyDashboard = () => {
   return (
     <AdminLayout>
       <div className="p-4">
-        <h1 className="text-2xl font-bold mb-4">Prehľad firiem</h1>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Prehľad firiem</h1>
+          <button
+            className="bg-green-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-green-700 transition duration-300"
+            onClick={() => setShowAddCompanyModal(true)}
+          >
+            + Pridať firmu
+          </button>
+        </div>
 
         {/* Výber časového obdobia */}
         <div className="mb-4 flex items-center gap-4">
@@ -126,6 +137,14 @@ const CompanyDashboard = () => {
           ))}
         </div>
       </div>
+
+      {/* Add Company Modal */}
+      {showAddCompanyModal && (
+        <AddCompanyModal
+          closeModal={() => setShowAddCompanyModal(false)}
+          fetchCompanies={fetchCompanies}
+        />
+      )}
 
       {/* Edit Company Modal */}
       {showEditCompanyModal && selectedCompany && (
