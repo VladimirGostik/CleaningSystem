@@ -29,7 +29,10 @@ router.get('/monthly-invoices', async (req, res) => {
       include: {
         model: ServicePlanned,
         as: 'services_planned',
+        attributes: ['id', 'name', 'price', 'quantity', 'id_invoice_monthly_invoices'],
+        separate: true, // This prevents N+1 by using a separate query with IN clause
       },
+      order: [['id', 'DESC']], // Order by id
     });
     res.status(200).json(monthlyInvoices);
   } catch (error) {

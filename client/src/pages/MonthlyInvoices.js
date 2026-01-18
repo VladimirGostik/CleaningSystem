@@ -13,8 +13,23 @@ const MonthlyInvoices = () => {
   const fetchInvoices = async () => {
     try {
       const invoicesData = await getMonthlyInvoices();
-      setInvoices(invoicesData);
-      setFilteredInvoices(invoicesData); // Set initial filtered invoices to all invoices
+      
+      // Calculate total_price for each invoice
+      const invoicesWithTotal = invoicesData.map((invoice) => {
+        const totalPrice = (invoice.services_planned || []).reduce((acc, service) => {
+          const price = parseFloat(service.price) || 0;
+          const quantity = parseInt(service.quantity, 10) || 0;
+          return acc + price * quantity;
+        }, 0);
+
+        return {
+          ...invoice,
+          total_price: totalPrice,
+        };
+      });
+      
+      setInvoices(invoicesWithTotal);
+      setFilteredInvoices(invoicesWithTotal); // Set initial filtered invoices to all invoices
     } catch (error) {
       console.error('Error fetching monthly invoices:', error);
     }

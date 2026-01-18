@@ -7,7 +7,7 @@ import ViewMonthlyInvoice from '../modals/ViewMonthlyInvoice';
 import InvoicePdf from './InvoicePDF';
 import { PDFViewer } from '@react-pdf/renderer';
 import { updateMonthlyInvoice } from '../services/monthlyInvoiceService';
-import { getResidentialCompanyById } from '../services/companyService';
+import { getResidentialCompanies } from '../services/companyService';
 
 const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
   const [showEditModal, setShowEditModal] = useState(false);
@@ -15,25 +15,25 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showActions, setShowActions] = useState(null);
-  const [residentialCompanyNames, setResidentialCompanyNames] = useState({}); // Uloženie názvov bytových podnikov
+  const [residentialCompaniesMap, setResidentialCompaniesMap] = useState({}); // Map of residential companies by ID
 
   useEffect(() => {
-    const fetchResidentialCompanyNames = async () => {
-      const names = {};
-      for (const invoice of invoices) {
-        try {
-          const residential_company = await getResidentialCompanyById(invoice.id_residential_company);
-          names[invoice.id] = residential_company.company_name || 'N/A';
-        } catch (error) {
-          console.error(`Chyba pri načítaní bytového podniku pre faktúru ${invoice.id}:`, error);
-          names[invoice.id] = 'N/A';
-        }
+    const fetchResidentialCompanies = async () => {
+      try {
+        const companies = await getResidentialCompanies();
+        // Create a map of id -> company_name for quick lookup
+        const companiesMap = companies.reduce((acc, company) => {
+          acc[company.id] = company.company_name;
+          return acc;
+        }, {});
+        setResidentialCompaniesMap(companiesMap);
+      } catch (error) {
+        console.error('Chyba pri načítaní bytových podnikov:', error);
       }
-      setResidentialCompanyNames(names);
     };
 
-    fetchResidentialCompanyNames();
-  }, [invoices]);
+    fetchResidentialCompanies();
+  }, []); // Only fetch once when component mounts
 
   const handleEdit = (invoice) => {
     setSelectedInvoice(invoice);
@@ -74,6 +74,7 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
             <th className="border p-2 text-left">Názov faktúry</th>
             <th className="border p-2 text-left">Spoločnosť</th>
             <th className="border p-2 text-left">Bytový podnik</th>
+            <th className="border p-2 text-right">Celková cena</th>
             <th className="border p-2 text-left">Akcie</th>
           </tr>
         </thead>
@@ -83,7 +84,10 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
               <td className="p-2 text-green-700 font-bold">{invoice.invoice_name}</td>
               <td className="p-2">{invoice.company_name || 'N/A'}</td>
               <td className="p-2">
-                {residentialCompanyNames[invoice.id] || 'Loading...'}
+                {residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}
+              </td>
+              <td className="p-2 text-right font-semibold">
+                {invoice.total_price ? `${invoice.total_price.toFixed(2)} €` : '0.00 €'}
               </td>
               <td className="p-2">
                 <div className="relative">
