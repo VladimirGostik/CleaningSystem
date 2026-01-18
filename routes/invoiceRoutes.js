@@ -14,6 +14,8 @@ router.get('/last-number', invoiceController.getLastInvoiceNumber);
 
 router.post('/generate-monthly', invoiceController.generateMonthlyInvoices);
 
+router.post('/generate-monthly-for-company', invoiceController.generateMonthlyInvoicesForCompany);
+
 // Bulk Actions Routes - musia byť definované pred dynamickou routou
 router.put('/bulk-update-status', invoiceController.bulkUpdateStatus);
 

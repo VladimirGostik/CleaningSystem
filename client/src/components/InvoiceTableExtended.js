@@ -1,6 +1,6 @@
 // src/components/InvoiceTableExtended.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import MarkAsPaidModal from '../modals/MarkAsPaidModal';
 import { PDFViewer } from '@react-pdf/renderer';
@@ -25,6 +25,7 @@ const InvoiceTableExtended = ({
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const allSelected = invoices.length > 0 && invoices.every(invoice => selectedInvoiceIds.includes(invoice.id));
   const [residentialCompaniesMap, setResidentialCompaniesMap] = useState({}); // Map of residential companies by ID
+  const actionsRef = useRef(null);
 
   useEffect(() => {
     const fetchResidentialCompanies = async () => {
@@ -43,6 +44,23 @@ const InvoiceTableExtended = ({
 
     fetchResidentialCompanies();
   }, []); // Only fetch once when component mounts
+
+  // Close actions menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (actionsRef.current && !actionsRef.current.contains(event.target)) {
+        setShowActions(null);
+      }
+    };
+
+    if (showActions !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActions]);
 
   // Formatting date function
   const formatDate = (dateString) => {
@@ -189,7 +207,7 @@ const InvoiceTableExtended = ({
                 )}
               </td>
               <td className="p-2">
-                <div className="relative">
+                <div className="relative" ref={showActions === invoice.id ? actionsRef : null}>
                   <button
                     onClick={() => toggleActions(invoice.id)}
                     className="bg-gray-300 text-black py-1 px-4 rounded-md hover:bg-gray-400"
@@ -202,7 +220,7 @@ const InvoiceTableExtended = ({
                         className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
                         onClick={() => {
                           onEdit(invoice.id);
-                          toggleActions(invoice.id);
+                          setShowActions(null);
                         }}
                       >
                         Upraviť
@@ -211,7 +229,7 @@ const InvoiceTableExtended = ({
                         className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
                         onClick={() => {
                           handlePdfView(invoice);
-                          toggleActions(invoice.id);
+                          setShowActions(null);
                         }}
                       >
                         PDF
@@ -220,7 +238,7 @@ const InvoiceTableExtended = ({
                         className="w-full text-left px-4 py-2 text-blue-600 hover:bg-blue-100 transition-colors duration-200"
                         onClick={() => {
                           onMarkAsSent(invoice.id);
-                          toggleActions(invoice.id);
+                          setShowActions(null);
                         }}
                       >
                         Označiť ako odoslaná
@@ -230,7 +248,7 @@ const InvoiceTableExtended = ({
                         onClick={() => {
                           setSelectedInvoiceId(invoice.id);
                           setShowMarkAsPaidModal(true);
-                          toggleActions(invoice.id);
+                          setShowActions(null);
                         }}
                       >
                         Označiť ako zaplatená
@@ -239,7 +257,7 @@ const InvoiceTableExtended = ({
                         className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100 transition-colors duration-200"
                         onClick={() => {
                           onDelete(invoice.id);
-                          toggleActions(invoice.id);
+                          setShowActions(null);
                         }}
                       >
                         Vymazať

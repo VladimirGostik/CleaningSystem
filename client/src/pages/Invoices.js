@@ -8,6 +8,7 @@ import InvoiceTableExtended from '../components/InvoiceTableExtended';
 import AddInvoiceModal from '../modals/AddInvoiceModal'; // Import the modal component
 import EditInvoiceModal from '../modals/EditInvoiceModal';
 import AddMonthlyInvoicesModal from '../modals/AddMonthlyInvoicesModal';
+import AddMonthlyInvoicesForCompanyModal from '../modals/AddMonthlyInvoicesForCompanyModal';
 import InvoiceFilter from '../components/InvoiceFilter'; // Import the filter component
 import MarkAsPaidModal from '../modals/MarkAsPaidModal'; // Import the MarkAsPaidModal
 import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Import BulkInvoiceDocument
@@ -15,7 +16,8 @@ import { pdf } from '@react-pdf/renderer'; // Import the pdf function
 import { 
   getInvoices, 
   addInvoice, 
-  generateMonthlyInvoices, 
+  generateMonthlyInvoices,
+  generateMonthlyInvoicesForCompany,
   updateInvoice, 
   InvoicesMarkAsSent, 
   InvoicesMarkAsPaid, 
@@ -33,6 +35,7 @@ const Invoices = () => {
   const [showEditInvoiceModal, setShowEditInvoiceModal] = useState(false); // Edit Invoice Modal
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null); // Selected Invoice ID for editing
   const [showAddMonthlyInvoicesModal, setShowAddMonthlyInvoicesModal] = useState(false); // Add Monthly Invoices Modal
+  const [showAddMonthlyInvoicesForCompanyModal, setShowAddMonthlyInvoicesForCompanyModal] = useState(false); // Add Monthly Invoices for Company Modal
   const [showBulkMarkAsPaidModal, setShowBulkMarkAsPaidModal] = useState(false); // State to control bulk MarkAsPaidModal
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false); // Stav pre import
@@ -42,8 +45,23 @@ const Invoices = () => {
   const [showBulkActions, setShowBulkActions] = useState(false); // Toggle visibility of bulk actions
 
   // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const [invoicesPerPage, setInvoicesPerPage] = useState(10); // Počet faktúr na stránku, nastaviteľný používateľom
+  const [currentPage, setCurrentPage] = useState(() => {
+    const saved = localStorage.getItem('invoicesCurrentPage');
+    return saved ? parseInt(saved, 10) : 1;
+  });
+  const [invoicesPerPage, setInvoicesPerPage] = useState(() => {
+    const saved = localStorage.getItem('invoicesPerPage');
+    return saved ? parseInt(saved, 10) : 10;
+  }); // Počet faktúr na stránku, nastaviteľný používateľom
+
+  // Save pagination state to localStorage
+  useEffect(() => {
+    localStorage.setItem('invoicesCurrentPage', currentPage.toString());
+  }, [currentPage]);
+
+  useEffect(() => {
+    localStorage.setItem('invoicesPerPage', invoicesPerPage.toString());
+  }, [invoicesPerPage]);
 
   // Fetch invoices from the backend API
   const fetchInvoices = useCallback(async () => {
@@ -157,6 +175,18 @@ const Invoices = () => {
     }
   };
 
+  // Handler for adding monthly invoices for a specific company
+  const handleAddMonthlyInvoicesForCompany = async (data) => {
+    try {
+      const result = await generateMonthlyInvoicesForCompany(data);
+      setShowAddMonthlyInvoicesForCompanyModal(false);
+      fetchInvoices();
+      toast.success(result.message || 'Mesačné faktúry pre firmu úspešne vytvorené');
+    } catch (error) {
+      toast.error(error.response?.data?.error || error.message);
+    }
+  };
+
   // Handler for filter changes
   const handleFilterChange = useCallback((filters) => {
     const {
@@ -254,6 +284,7 @@ const Invoices = () => {
       await InvoicesBulkMarkAsSent(selectedInvoiceIds);
       fetchInvoices();
       toast.success('Vybrané faktúry označené ako odoslané');
+      setShowBulkActions(false); // Close bulk actions after successful operation
     } catch (error) {
       console.error('Error marking invoices as sent:', error);
       toast.error('Chyba pri označovaní faktúr ako odoslaných');
@@ -274,6 +305,7 @@ const Invoices = () => {
       fetchInvoices();
       toast.success('Vybrané faktúry označené ako zaplatené');
       setShowBulkMarkAsPaidModal(false);
+      setShowBulkActions(false); // Close bulk actions after successful operation
     } catch (error) {
       console.error('Error marking invoices as paid:', error);
       toast.error('Chyba pri označovaní faktúr ako zaplatených');
@@ -294,6 +326,7 @@ const Invoices = () => {
       await InvoicesBulkDelete(selectedInvoiceIds);
       fetchInvoices();
       toast.success('Vybrané faktúry úspešne vymazané');
+      setShowBulkActions(false); // Close bulk actions after successful operation
     } catch (error) {
       console.error('Error deleting invoices:', error);
       toast.error('Chyba pri vymazávaní faktúr');
@@ -318,6 +351,7 @@ const Invoices = () => {
       link.click();
       link.parentNode.removeChild(link);
       toast.success('Bulk PDF úspešne stiahnutý');
+      setShowBulkActions(false); // Close bulk actions after successful operation
     } catch (error) {
       console.error('Error generating bulk PDF:', error);
       toast.error('Chyba pri generovaní PDF');
@@ -381,6 +415,12 @@ const Invoices = () => {
             + Pridať mesačné faktúry
           </button>
           <button
+            className="bg-blue-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-blue-700 transition duration-300"
+            onClick={() => setShowAddMonthlyInvoicesForCompanyModal(true)}
+          >
+            + Mesačné faktúry pre firmu
+          </button>
+          <button
             onClick={() => setShowImportModal(true)}
             className="bg-blue-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-blue-700 transition duration-300"
           >
@@ -413,6 +453,8 @@ const Invoices = () => {
           <option value={50}>50</option>
           <option value={100}>100</option>
           <option value={200}>200</option>
+          <option value={500}>500</option>
+          <option value={1000}>1000</option>
         </select>
       </div>
 
@@ -571,6 +613,9 @@ const Invoices = () => {
       )}
       {showAddMonthlyInvoicesModal && (
         <AddMonthlyInvoicesModal closeModal={() => setShowAddMonthlyInvoicesModal(false)} onSubmit={handleAddMonthlyInvoices} />
+      )}
+      {showAddMonthlyInvoicesForCompanyModal && (
+        <AddMonthlyInvoicesForCompanyModal closeModal={() => setShowAddMonthlyInvoicesForCompanyModal(false)} onSubmit={handleAddMonthlyInvoicesForCompany} />
       )}
       {showBulkMarkAsPaidModal && (
         <MarkAsPaidModal closeModal={() => setShowBulkMarkAsPaidModal(false)} onSubmit={handleBulkMarkAsPaidSubmit} />

@@ -240,6 +240,119 @@ exports.generateMonthlyInvoices = async (req, res) => {
   }
 };
 
+exports.generateMonthlyInvoicesForCompany = async (req, res) => {
+  try {
+    const { issue_date, due_date, billing_month, payment_date, status, id_company } = req.body;
+
+    if (!id_company) {
+      return res.status(400).json({ error: 'id_company is required' });
+    }
+
+    // Fetch monthly invoice templates for the selected company only
+    const monthlyInvoices = await MonthlyInvoice.findAll({
+      where: { id_company },
+      include: [{ model: ServicePlanned, as: 'services_planned' }],
+    });
+
+    if (monthlyInvoices.length === 0) {
+      return res.status(404).json({ 
+        error: 'Žiadne mesačné faktúry pre túto spoločnosť' 
+      });
+    }
+
+    // Zoradenie šablón podľa id_residential_company
+    monthlyInvoices.sort((a, b) => a.id_residential_company - b.id_residential_company);
+
+    const createdInvoices = [];
+    let invoiceYear = new Date(issue_date).getFullYear();
+
+    // Fetch the last invoice number for the company and year once
+    const lastInvoice = await Invoice.findOne({
+      where: {
+        id_company: id_company,
+        issue_date: {
+          [Op.between]: [`${invoiceYear}-01-01`, `${invoiceYear}-12-31`],
+        },
+      },
+      order: [['invoice_number', 'DESC']],
+    });
+
+    // Extract and increment the number for the new invoices
+    let newNumber = 1;
+    if (lastInvoice) {
+      const lastNumberPart = lastInvoice.invoice_number.split('/')[0];
+      newNumber = parseInt(lastNumberPart, 10) + 1;
+    }
+
+    for (const template of monthlyInvoices) {
+      // Format the invoice number
+      const formattedNumber = newNumber.toString().padStart(5, '0');
+      const invoice_number = `${formattedNumber}/${invoiceYear}`;
+
+      // Create the invoice
+      const invoiceData = {
+        invoice_name: template.invoice_name,
+        id_company: template.id_company,
+        id_residential_company: template.id_residential_company,
+        issue_date,
+        due_date,
+        billing_month,
+        payment_date,
+        status,
+        invoice_number,
+        company_name: template.company_name,
+        company_address: template.company_address,
+        city: template.city,
+        postal_code: template.postal_code,
+        company_ico: template.company_ico,
+        company_dic: template.company_dic,
+        company_ic_dph: template.company_ic_dph,
+        company_iban: template.company_iban,
+        bank_connection: template.bank_connection,
+        payment_method: template.payment_method || 'Prevodom',
+        header1: template.header1,
+        header2: template.header2,
+        header3: template.header3,
+        header4: template.header4,
+        residential_company_name: template.residential_company_name,
+        residential_company_address: template.residential_company_address,
+        residential_city: template.residential_city,
+        residential_postal_code: template.residential_postal_code,
+        residential_company_ico: template.residential_company_ico,
+        residential_company_dic: template.residential_company_dic,
+        residential_company_ic_dph: template.residential_company_ic_dph,
+        residential_company_iban: template.residential_company_iban,
+        residential_bank_connection: template.residential_bank_connection,
+        description_above_services: template.description_above_services,
+        description_services: template.description_services,
+      };
+
+      const invoice = await Invoice.create(invoiceData);
+
+      // Copy services from 'services_planned' to 'services'
+      const servicesData = template.services_planned.map((service) => ({
+        invoice_id: invoice.id,
+        name: service.name,
+        quantity: service.quantity,
+        price: service.price,
+      }));
+
+      await Service.bulkCreate(servicesData);
+
+      createdInvoices.push(invoice);
+      newNumber++; // Increment for next invoice
+    }
+
+    res.status(201).json({
+      message: `Vytvorené ${createdInvoices.length} mesačné faktúry pre vybranú spoločnosť`,
+      invoices: createdInvoices,
+    });
+  } catch (error) {
+    console.error('Error generating monthly invoices for company:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 exports.updateInvoicesFromTransactions = async (req, res) => {
   try {
     const transactions = req.body.transactions;

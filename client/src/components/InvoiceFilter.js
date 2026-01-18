@@ -5,12 +5,38 @@ import PropTypes from 'prop-types';
 import Select from 'react-select';
 import { getCompanies, getResidentialCompanies } from '../services/companyService';
 
+const STORAGE_KEY = 'invoiceFilters';
+
 const InvoiceFilter = ({ invoices, onFilter }) => {
-  const [invoiceNumber, setInvoiceNumber] = useState('');
+  // Load saved filters from localStorage or use defaults
+  const loadSavedFilters = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Error loading saved filters:', error);
+    }
+    return {
+      invoiceNumber: '',
+      selectedCompanies: [],
+      selectedResidentialCompanies: [],
+      selectedStatus: '',
+      totalPriceFrom: '',
+      totalPriceTo: '',
+      issueDateFrom: '',
+      issueDateTo: '',
+    };
+  };
+
+  const savedFilters = loadSavedFilters();
+
+  const [invoiceNumber, setInvoiceNumber] = useState(savedFilters.invoiceNumber);
   const [companyOptions, setCompanyOptions] = useState([]);
-  const [selectedCompanies, setSelectedCompanies] = useState([]);
+  const [selectedCompanies, setSelectedCompanies] = useState(savedFilters.selectedCompanies);
   const [residentialCompanyOptions, setResidentialCompanyOptions] = useState([]);
-  const [selectedResidentialCompanies, setSelectedResidentialCompanies] = useState([]);
+  const [selectedResidentialCompanies, setSelectedResidentialCompanies] = useState(savedFilters.selectedResidentialCompanies);
   const [statusOptions] = useState([
     { value: '', label: 'Všetky' },
     { value: 'created', label: 'Vytvorená' },
@@ -18,11 +44,11 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
     { value: 'paid', label: 'Zaplatená' },
     { value: 'expired', label: 'Po splatnosti' },
   ]);
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [totalPriceFrom, setTotalPriceFrom] = useState('');
-  const [totalPriceTo, setTotalPriceTo] = useState('');
-  const [issueDateFrom, setIssueDateFrom] = useState('');
-  const [issueDateTo, setIssueDateTo] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState(savedFilters.selectedStatus);
+  const [totalPriceFrom, setTotalPriceFrom] = useState(savedFilters.totalPriceFrom);
+  const [totalPriceTo, setTotalPriceTo] = useState(savedFilters.totalPriceTo);
+  const [issueDateFrom, setIssueDateFrom] = useState(savedFilters.issueDateFrom);
+  const [issueDateTo, setIssueDateTo] = useState(savedFilters.issueDateTo);
 
   // Extract unique company IDs and names based on type
   useEffect(() => {
@@ -48,6 +74,36 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
 
     fetchCompanies();
   }, []);
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    const filtersToSave = {
+      invoiceNumber,
+      selectedCompanies,
+      selectedResidentialCompanies,
+      selectedStatus,
+      totalPriceFrom,
+      totalPriceTo,
+      issueDateFrom,
+      issueDateTo,
+    };
+    
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filtersToSave));
+    } catch (error) {
+      console.error('Error saving filters to localStorage:', error);
+    }
+  }, [
+    invoiceNumber,
+    selectedCompanies,
+    selectedResidentialCompanies,
+    selectedStatus,
+    totalPriceFrom,
+    totalPriceTo,
+    issueDateFrom,
+    issueDateTo,
+  ]);
+
   // Handle filter changes
   useEffect(() => {
     const filters = {
@@ -74,8 +130,30 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
     onFilter,
   ]);
 
+  // Reset all filters
+  const handleResetFilters = () => {
+    setInvoiceNumber('');
+    setSelectedCompanies([]);
+    setSelectedResidentialCompanies([]);
+    setSelectedStatus('');
+    setTotalPriceFrom('');
+    setTotalPriceTo('');
+    setIssueDateFrom('');
+    setIssueDateTo('');
+    localStorage.removeItem(STORAGE_KEY);
+  };
+
   return (
     <div className=" mb-4">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="text-lg font-semibold text-gray-700">Filtre faktúr</h3>
+        <button
+          onClick={handleResetFilters}
+          className="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition duration-300 text-sm"
+        >
+          Vymazať filtre
+        </button>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Invoice Number */}
         <div>

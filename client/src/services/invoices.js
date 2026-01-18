@@ -99,6 +99,17 @@ export const generateMonthlyInvoices = async (data) => {
   }
 };
 
+// 🔄 Generovanie mesačných faktúr pre jednu firmu
+export const generateMonthlyInvoicesForCompany = async (data) => {
+  try {
+    const response = await axiosInstance.post('/invoices/generate-monthly-for-company', data);
+    return response.data;
+  } catch (error) {
+    console.error('Error generating monthly invoices for company:', error);
+    throw error;
+  }
+};
+
 // 💰 Označenie faktúry ako ZAPLATENÚ
 export const InvoicesMarkAsPaid = async (invoiceId, paymentDate) => {
   try {

@@ -1,13 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-const Sidebar = () => {
+const Sidebar = ({ onLinkClick }) => {
+  const handleClick = () => {
+    if (onLinkClick) {
+      onLinkClick();
+    }
+  };
+
   return (
-    <div className="w-1/6 bg-green-500 min-h-screen text-white shadow-lg p-2 pt-2 px-2 rounded-2xl h-full">
+    <div className="w-56 lg:w-64 bg-green-500 min-h-screen text-white shadow-lg p-2 pt-2 px-2 rounded-2xl h-full flex-shrink-0">
       <nav className="flex flex-col">
         <Link
           to="/admin-dashboard"
           className="flex items-center gap-2 hover:bg-green-700 transition duration-300 p-1.5 rounded mb-1"
+          onClick={handleClick}
         >
           <img
             src="/images/graph.png"
@@ -19,6 +26,7 @@ const Sidebar = () => {
         <Link
           to="/invoices"
           className="flex items-center gap-2 hover:bg-green-700 transition duration-300 p-1.5 rounded mb-1"
+          onClick={handleClick}
         >
           <img
             src="/images/checklist.png"
@@ -30,6 +38,7 @@ const Sidebar = () => {
         <Link
           to="/monthly-invoices"
           className="flex items-center gap-2 hover:bg-green-700 transition duration-300 p-1.5 rounded mb-1"
+          onClick={handleClick}
         >
           <img
             src="/images/monthly-bill.png"
@@ -41,6 +50,7 @@ const Sidebar = () => {
         <Link
           to="/residential-companies"
           className="flex items-center gap-2 hover:bg-green-700 transition duration-300 p-1.5 rounded mb-1"
+          onClick={handleClick}
         >
           <img
             src="/images/home.png"
@@ -52,6 +62,7 @@ const Sidebar = () => {
         <Link
           to="/expanses"
           className="flex items-center gap-2 hover:bg-green-700 transition duration-300 p-1.5 rounded mb-1"
+          onClick={handleClick}
         >
           <img
             src="/images/money.png"
@@ -63,6 +74,7 @@ const Sidebar = () => {
         <Link
           to="/employees"
           className="flex items-center gap-2 hover:bg-green-700 transition duration-300 p-1.5 rounded"
+          onClick={handleClick}
         >
           <img
             src="/images/employes.png"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -16,6 +16,7 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showActions, setShowActions] = useState(null);
   const [residentialCompaniesMap, setResidentialCompaniesMap] = useState({}); // Map of residential companies by ID
+  const actionsRef = useRef(null);
 
   useEffect(() => {
     const fetchResidentialCompanies = async () => {
@@ -34,6 +35,23 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
 
     fetchResidentialCompanies();
   }, []); // Only fetch once when component mounts
+
+  // Close actions menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (actionsRef.current && !actionsRef.current.contains(event.target)) {
+        setShowActions(null);
+      }
+    };
+
+    if (showActions !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActions]);
 
   const handleEdit = (invoice) => {
     setSelectedInvoice(invoice);
@@ -90,7 +108,7 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
                 {invoice.total_price ? `${invoice.total_price.toFixed(2)} €` : '0.00 €'}
               </td>
               <td className="p-2">
-                <div className="relative">
+                <div className="relative" ref={showActions === invoice.id ? actionsRef : null}>
                   <button
                     className="bg-gray-300 text-black py-1 px-4 rounded-md hover:bg-gray-400"
                     onClick={() => toggleActions(invoice.id)}
@@ -101,25 +119,37 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
                     <div className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg py-2 transition-all duration-300 ease-in-out transform origin-top-right z-50">
                       <button
                         className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
-                        onClick={() => handleView(invoice)}
+                        onClick={() => {
+                          handleView(invoice);
+                          setShowActions(null);
+                        }}
                       >
                         Zobraziť
                       </button>
                       <button
                         className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
-                        onClick={() => handleEdit(invoice)}
+                        onClick={() => {
+                          handleEdit(invoice);
+                          setShowActions(null);
+                        }}
                       >
                         Upraviť
                       </button>
                       <button
                         className="w-full text-left px-4 py-2 text-blue-600 hover:bg-blue-100 transition-colors duration-200"
-                        onClick={() => handlePdfView(invoice)}
+                        onClick={() => {
+                          handlePdfView(invoice);
+                          setShowActions(null);
+                        }}
                       >
                         PDF
                       </button>
                       <button
                         className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100 transition-colors duration-200"
-                        onClick={() => onDelete(invoice.id)}
+                        onClick={() => {
+                          onDelete(invoice.id);
+                          setShowActions(null);
+                        }}
                       >
                         Vymazať
                       </button>
