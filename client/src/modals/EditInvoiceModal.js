@@ -60,7 +60,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, invoiceId }) => {
         setInvoiceNumber(invoice.invoice_number || '');
         setIssueDate(invoice.issue_date ? invoice.issue_date.slice(0, 10) : '');
         setDueDate(invoice.due_date ? invoice.due_date.slice(0, 10) : '');
-        setBillingMonth(invoice.billing_month ? `2021-${String(invoice.billing_month).padStart(2, '0')}` : '');
+        setBillingMonth(invoice.billing_month ? String(invoice.billing_month) : '');
         setDescriptionAboveServices(invoice.description_above_services || '');
         setDescriptionServices(invoice.description_services || '');
         setpaymentDate(invoice.payment_date ? invoice.payment_date.slice(0, 10) : '');
@@ -129,11 +129,11 @@ const EditInvoiceModal = ({ closeModal, onSubmit, invoiceId }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Extract month number from billingMonth
-    const billingMonthNumber = billingMonth ? parseInt(billingMonth.split('-')[1], 10) : null;
+    // Get month number directly (it's already a number 1-12)
+    const billingMonthNumber = billingMonth ? parseInt(billingMonth, 10) : null;
 
-    if (!billingMonthNumber || isNaN(billingMonthNumber)) {
-      alert('Prosím vyberte platný fakturačný mesiac.');
+    if (!billingMonthNumber || isNaN(billingMonthNumber) || billingMonthNumber < 1 || billingMonthNumber > 12) {
+      alert('Prosím vyberte platný fakturačný mesiac (1-12).');
       return;
     }
 
@@ -368,16 +368,29 @@ const EditInvoiceModal = ({ closeModal, onSubmit, invoiceId }) => {
             {/* Billing Month */}
             <div className="form-group">
               <label className="block text-green-700 mb-2" htmlFor="billingMonth">
-                Fakturačný mesiac:
+                Fakturačný mesiac (1-12):
               </label>
-              <input
-                type="month"
+              <select
                 id="billingMonth"
                 className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
                 value={billingMonth}
                 onChange={(e) => setBillingMonth(e.target.value)}
                 required
-              />
+              >
+                <option value="">-- Vyberte mesiac --</option>
+                <option value="1">Január (1)</option>
+                <option value="2">Február (2)</option>
+                <option value="3">Marec (3)</option>
+                <option value="4">Apríl (4)</option>
+                <option value="5">Máj (5)</option>
+                <option value="6">Jún (6)</option>
+                <option value="7">Júl (7)</option>
+                <option value="8">August (8)</option>
+                <option value="9">September (9)</option>
+                <option value="10">Október (10)</option>
+                <option value="11">November (11)</option>
+                <option value="12">December (12)</option>
+              </select>
             </div>
           </div>
 

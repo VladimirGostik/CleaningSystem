@@ -471,19 +471,80 @@ const Invoices = () => {
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex justify-center mt-4">
-        {Array.from({ length: totalPages }, (_, index) => index + 1).map(pageNumber => (
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center mt-4 gap-2">
+          {/* Previous Button */}
           <button
-            key={pageNumber}
-            className={`mx-1 px-3 py-1 rounded ${
-              currentPage === pageNumber ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            className={`px-3 py-1 rounded ${
+              currentPage === 1 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
-            onClick={() => handlePageChange(pageNumber)}
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
           >
-            {pageNumber}
+            ‹ Predchádzajúca
           </button>
-        ))}
-      </div>
+
+          {/* First Page */}
+          {currentPage > 3 && (
+            <>
+              <button
+                className="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                onClick={() => handlePageChange(1)}
+              >
+                1
+              </button>
+              {currentPage > 4 && <span className="px-2">...</span>}
+            </>
+          )}
+
+          {/* Page Numbers around current page */}
+          {Array.from({ length: totalPages }, (_, index) => index + 1)
+            .filter(pageNumber => {
+              // Show pages around current page
+              return pageNumber >= currentPage - 2 && pageNumber <= currentPage + 2;
+            })
+            .map(pageNumber => (
+              <button
+                key={pageNumber}
+                className={`px-3 py-1 rounded ${
+                  currentPage === pageNumber ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                onClick={() => handlePageChange(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+
+          {/* Last Page */}
+          {currentPage < totalPages - 2 && (
+            <>
+              {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+              <button
+                className="px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                onClick={() => handlePageChange(totalPages)}
+              >
+                {totalPages}
+              </button>
+            </>
+          )}
+
+          {/* Next Button */}
+          <button
+            className={`px-3 py-1 rounded ${
+              currentPage === totalPages ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            Ďalšia ›
+          </button>
+
+          {/* Page Info */}
+          <span className="ml-2 text-gray-600">
+            Strana {currentPage} z {totalPages}
+          </span>
+        </div>
+      )}
 
       {/* Modals */}
       {showAddInvoiceModal && (

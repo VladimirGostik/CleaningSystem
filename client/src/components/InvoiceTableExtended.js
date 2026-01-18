@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import MarkAsPaidModal from '../modals/MarkAsPaidModal';
 import { PDFViewer } from '@react-pdf/renderer';
 import InvoiceExtendedPdf from './InvoiceExtendedPdf';
-import { getResidentialCompanyById } from '../services/companyService';
+import { getResidentialCompanies } from '../services/companyService';
 
 const InvoiceTableExtended = ({
   invoices,
@@ -24,25 +24,25 @@ const InvoiceTableExtended = ({
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const allSelected = invoices.length > 0 && invoices.every(invoice => selectedInvoiceIds.includes(invoice.id));
-  const [residentialCompanyNames, setResidentialCompanyNames] = useState({}); // Uloženie názvov bytových podnikov
+  const [residentialCompaniesMap, setResidentialCompaniesMap] = useState({}); // Map of residential companies by ID
 
-    useEffect(() => {
-      const fetchResidentialCompanyNames = async () => {
-        const names = {};
-        for (const invoice of invoices) {
-          try {
-            const residential_company = await getResidentialCompanyById(invoice.id_residential_company);
-            names[invoice.id] = residential_company.company_name || 'N/A';
-          } catch (error) {
-            console.error(`Chyba pri načítaní bytového podniku pre faktúru ${invoice.id}:`, error);
-            names[invoice.id] = 'N/A';
-          }
-        }
-        setResidentialCompanyNames(names);
-      };
-  
-      fetchResidentialCompanyNames();
-    }, [invoices]);
+  useEffect(() => {
+    const fetchResidentialCompanies = async () => {
+      try {
+        const companies = await getResidentialCompanies();
+        // Create a map of id -> company_name for quick lookup
+        const companiesMap = companies.reduce((acc, company) => {
+          acc[company.id] = company.company_name;
+          return acc;
+        }, {});
+        setResidentialCompaniesMap(companiesMap);
+      } catch (error) {
+        console.error('Chyba pri načítaní bytových podnikov:', error);
+      }
+    };
+
+    fetchResidentialCompanies();
+  }, []); // Only fetch once when component mounts
 
   // Formatting date function
   const formatDate = (dateString) => {
@@ -167,7 +167,7 @@ const InvoiceTableExtended = ({
               <td className="p-2">{invoice.invoice_number}</td>
               <td className="p-2">{formatDate(invoice.issue_date)}</td>
               <td className="p-2">{invoice.company_name}</td>
-              <td className="p-2">{residentialCompanyNames[invoice.id] || 'Loading...'}</td>
+              <td className="p-2">{residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}</td>
               <td className="p-2">
                 {invoice.total_price !== undefined
                   ? invoice.total_price.toFixed(2)

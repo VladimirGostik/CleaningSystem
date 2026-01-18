@@ -35,7 +35,15 @@ exports.createInvoice = async (req, res) => {
 exports.getAllInvoices = async (req, res) => {
   try {
     const invoices = await Invoice.findAll({
-      include: [{ model: Service, as: 'services' }],
+      include: [
+        { 
+          model: Service, 
+          as: 'services',
+          attributes: ['id', 'name', 'price', 'quantity', 'invoice_id'], // Only select needed fields
+          separate: true, // This prevents N+1 by using a separate query with IN clause
+        }
+      ],
+      order: [['issue_date', 'DESC'], ['id', 'DESC']], // Order by date and id
     });
     res.status(200).json(invoices);
   } catch (error) {
@@ -147,9 +155,6 @@ exports.generateMonthlyInvoices = async (req, res) => {
     for (const template of monthlyInvoices) {
       // Generate invoice_number based on your logic
       let invoiceYear = new Date(issue_date).getFullYear();
-      if (billing_month === 12) {
-        invoiceYear -= 1;
-      }
 
       // Fetch the last invoice number for the current company and year
       const lastInvoice = await Invoice.findOne({
