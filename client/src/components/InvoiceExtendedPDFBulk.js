@@ -196,7 +196,9 @@ const styles = StyleSheet.create({
   paymentSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginTop: 20,
+    gap: 15,
   },
   paymentInfo: {
     flex: 1,
@@ -204,15 +206,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     textAlign: 'left',
     border: '2 solid #2f5597',
-    marginRight: 10,
   },
   qrCodeContainer: {
-    flex: 0,
     padding: 15,
     borderRadius: 10,
     border: '2 solid #2f5597',
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 150,
   },
   qrCode: {
     width: 120,
@@ -392,14 +393,14 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
               <Text style={styles.boldText}>Forma úhrady:</Text> Prevodom
             </Text>
           </View>
-          {qrCodeUrl && (
-            <View style={styles.qrCodeContainer}>
-              <Image src={qrCodeUrl} style={styles.qrCode} />
-              <Text style={{ ...styles.infoText, marginTop: 5, fontSize: 8, textAlign: 'center' }}>
-                QR kód pre platbu
-              </Text>
-            </View>
-          )}
+                    {qrCodeUrl && (
+                        <View style={styles.qrCodeContainer}>
+                            <Image src={qrCodeUrl} style={styles.qrCode} />
+                            <Text style={{ ...styles.infoText, marginTop: 8, fontSize: 9, textAlign: 'center', fontWeight: 'bold' }}>
+                                QR kód pre platbu
+                            </Text>
+                        </View>
+                    )}
         </View>
 
         {formattedDescriptionAbove && (
