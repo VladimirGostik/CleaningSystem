@@ -189,31 +189,31 @@ const InvoiceTableExtended = ({
         <tbody>
           {sortedInvoices.map((invoice) => (
             <tr key={invoice.id} className="border-b hover:bg-gray-100">
-               <td className="w-12 px-1 py-1 border-b border-gray-200 bg-white text-xs">
+               <td className="w-12 px-1 py-1 border-b border-gray-200 bg-white text-sm">
                 <input
                   type="checkbox"
                   checked={selectedInvoiceIds.includes(invoice.id)}
                   onChange={(e) => onSelectInvoice(invoice.id, e.target.checked)}
                 />
               </td>
-              <td className="w-24 px-1.5 py-1 text-xs">{invoice.invoice_number}</td>
-              <td className="w-28 px-1.5 py-1 text-xs">{formatDate(invoice.issue_date)}</td>
-              <td className="px-1.5 py-1 text-xs">{invoice.company_name}</td>
-              <td className="px-1.5 py-1 text-xs" title={invoice.invoice_name || 'N/A'}>
+              <td className="w-24 px-1.5 py-1 text-sm">{invoice.invoice_number}</td>
+              <td className="w-28 px-1.5 py-1 text-sm">{formatDate(invoice.issue_date)}</td>
+              <td className="px-1.5 py-1 text-sm">{invoice.company_name}</td>
+              <td className="px-1.5 py-1 text-sm" title={invoice.invoice_name || 'N/A'}>
                 {invoice.invoice_name || 'N/A'}
               </td>
-              <td className="px-1.5 py-1 text-xs" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
+              <td className="px-1.5 py-1 text-sm" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
                 <span className="truncate block max-w-[150px]" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
                   {invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}
                 </span>
               </td>
-              <td className="px-1.5 py-1 text-xs">
+              <td className="px-1.5 py-1 text-sm">
                 {invoice.total_price !== undefined
                   ? invoice.total_price.toFixed(2)
                   : 'N/A'}{' '}
                 €
               </td>
-              <td className="px-1.5 py-1 text-xs">
+              <td className="px-1.5 py-1 text-sm">
                 {invoice.status === 'paid' && (
                   <span className="text-green-600 font-semibold">Zaplatená</span>
                 )}
