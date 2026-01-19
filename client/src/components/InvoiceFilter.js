@@ -161,40 +161,40 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
           Vymazať filtre
         </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Invoice Number */}
         <div>
-          <label className="block text-gray-700 mb-2" htmlFor="invoiceNumber">
+          <label className="block text-gray-700 mb-1 text-sm font-medium" htmlFor="invoiceNumber">
             Číslo faktúry:
           </label>
           <input
             type="text"
             id="invoiceNumber"
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+            className="w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
             value={invoiceNumber}
             onChange={(e) => setInvoiceNumber(e.target.value)}
-            placeholder="Zadajte číslo faktúry"
+            placeholder="Napríklad: 20260001"
           />
         </div>
 
         {/* Invoice Name */}
         <div>
-          <label className="block text-gray-700 mb-2" htmlFor="invoiceName">
+          <label className="block text-gray-700 mb-1 text-sm font-medium" htmlFor="invoiceName">
             Názov faktúry:
           </label>
           <input
             type="text"
             id="invoiceName"
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+            className="w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
             value={invoiceName}
             onChange={(e) => setInvoiceName(e.target.value)}
-            placeholder="Zadajte názov faktúry"
+            placeholder="Napríklad: Úklid, Rehabilitácia..."
           />
         </div>
 
         {/* Company Name Multi-Select */}
         <div>
-          <label className="block text-gray-700 mb-2">
+          <label className="block text-gray-700 mb-1 text-sm font-medium">
             Názov spoločnosti:
           </label>
           <Select
@@ -203,12 +203,20 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
             value={selectedCompanies}
             onChange={setSelectedCompanies}
             placeholder="Vyberte spoločnosti"
+            className="text-sm"
+            styles={{
+              control: (base) => ({
+                ...base,
+                minHeight: '32px',
+                fontSize: '14px',
+              }),
+            }}
           />
         </div>
 
         {/* Residential Company Name Multi-Select */}
         <div>
-          <label className="block text-gray-700 mb-2">
+          <label className="block text-gray-700 mb-1 text-sm font-medium">
             Názov bytového podniku:
           </label>
           <Select
@@ -217,14 +225,22 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
             value={selectedResidentialCompanies}
             onChange={setSelectedResidentialCompanies}
             placeholder="Vyberte bytové podniky"
+            className="text-sm"
+            styles={{
+              control: (base) => ({
+                ...base,
+                minHeight: '32px',
+                fontSize: '14px',
+              }),
+            }}
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
         {/* Status Select */}
         <div>
-          <label className="block text-gray-700 mb-2">
+          <label className="block text-gray-700 mb-1 text-sm font-medium">
             Status:
           </label>
           <Select
@@ -235,19 +251,27 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
             onChange={(option) => setSelectedStatus(option ? option.value : '')}
             placeholder="Vyberte status"
             isClearable
+            className="text-sm"
+            styles={{
+              control: (base) => ({
+                ...base,
+                minHeight: '32px',
+                fontSize: '14px',
+              }),
+            }}
           />
         </div>
 
         {/* Total Price Range */}
         <div>
-          <label className="block text-gray-700 mb-2">
+          <label className="block text-gray-700 mb-1 text-sm font-medium">
             Celková cena (od - do):
           </label>
           <div className="flex space-x-2">
             <input
               type="number"
               min="0"
-              className="w-1/2 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-1/2 p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
               placeholder="Od"
               value={totalPriceFrom}
               onChange={(e) => setTotalPriceFrom(e.target.value)}
@@ -255,7 +279,7 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
             <input
               type="number"
               min="0"
-              className="w-1/2 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-1/2 p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
               placeholder="Do"
               value={totalPriceTo}
               onChange={(e) => setTotalPriceTo(e.target.value)}
@@ -265,19 +289,19 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
 
         {/* Issue Date Range */}
         <div>
-          <label className="block text-gray-700 mb-2">
+          <label className="block text-gray-700 mb-1 text-sm font-medium">
             Dátum vystavenia (od - do):
           </label>
           <div className="flex space-x-2">
             <input
               type="date"
-              className="w-1/2 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-1/2 p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
               value={issueDateFrom}
               onChange={(e) => setIssueDateFrom(e.target.value)}
             />
             <input
               type="date"
-              className="w-1/2 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+              className="w-1/2 p-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
               value={issueDateTo}
               onChange={(e) => setIssueDateTo(e.target.value)}
             />

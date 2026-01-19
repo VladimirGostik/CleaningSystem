@@ -524,8 +524,15 @@ const Invoices = () => {
       for (const companyId of Object.keys(invoicesByCompany)) {
         const { companyName, invoices } = invoicesByCompany[companyId];
         
-        // Zoradiť faktúry podľa čísla faktúry
+        // Zoradiť faktúry podľa residential_company_name a potom podľa čísla faktúry
         invoices.sort((a, b) => {
+          // Najprv podľa residential_company_name
+          const residentialA = a.residential_company_name || '';
+          const residentialB = b.residential_company_name || '';
+          if (residentialA !== residentialB) {
+            return residentialA.localeCompare(residentialB);
+          }
+          // Potom podľa čísla faktúry
           const numA = parseInt(a.invoice_number?.replace(/\D/g, '') || '0');
           const numB = parseInt(b.invoice_number?.replace(/\D/g, '') || '0');
           return numA - numB;
@@ -598,7 +605,8 @@ const Invoices = () => {
         // Hlavička tabuľky
         excelData.push(['Č. faktúry', '', 'Suma', 'Vyplatené']);
         
-        // Riadky s faktúrami
+        // Zoskupiť faktúry podľa residential_company_name
+        const invoicesByResidential = {};
         for (const invoice of invoices) {
           // Získať názov rezidenčnej firmy
           let residentialName = invoice.residential_company_name || '';
@@ -612,36 +620,65 @@ const Invoices = () => {
             }
           }
           
-          // Ak stále nie je názov, použiť invoice_name alebo prázdny string
+          // Ak stále nie je názov, použiť "Bez rezidenčnej firmy"
           if (!residentialName) {
-            residentialName = invoice.invoice_name || '';
+            residentialName = 'Bez rezidenčnej firmy';
           }
           
-          // Vypočítať celkovú sumu
-          const totalPrice = (invoice.services || []).reduce((acc, service) => {
-            const price = parseFloat(service.price) || 0;
-            const quantity = parseInt(service.quantity, 10) || 0;
-            return acc + price * quantity;
-          }, 0);
-
-          // Získať číslo faktúry (iba čísla, bez roku)
-          let invoiceNumber = invoice.invoice_number || '';
-          // Ak je formát YYYYNNNN, vezmi len posledné 4 číslice
-          if (invoiceNumber.length === 8 && /^\d{8}$/.test(invoiceNumber)) {
-            invoiceNumber = invoiceNumber.substring(4);
-          } else if (invoiceNumber.includes('/')) {
-            // Starý formát: 00001/2026
-            invoiceNumber = invoiceNumber.split('/')[0];
+          if (!invoicesByResidential[residentialName]) {
+            invoicesByResidential[residentialName] = [];
           }
-          // Odstrániť úvodné nuly
-          invoiceNumber = invoiceNumber.replace(/^0+/, '') || invoiceNumber;
+          
+          invoicesByResidential[residentialName].push(invoice);
+        }
+        
+        // Pridať faktúry zoskupené podľa residential company
+        const residentialCompanyNames = Object.keys(invoicesByResidential).sort();
+        let isFirstGroup = true;
+        
+        for (const residentialName of residentialCompanyNames) {
+          const groupInvoices = invoicesByResidential[residentialName];
+          
+          // Pridať prázdny riadok pred každou skupinou (okrem prvej)
+          if (!isFirstGroup) {
+            excelData.push([]);
+          }
+          isFirstGroup = false;
+          
+          // Pridať názov residential company
+          excelData.push([residentialName, '', '', '']);
+          
+          // Pridať faktúry pre túto residential company
+          for (const invoice of groupInvoices) {
+            // Vypočítať celkovú sumu
+            const totalPrice = (invoice.services || []).reduce((acc, service) => {
+              const price = parseFloat(service.price) || 0;
+              const quantity = parseInt(service.quantity, 10) || 0;
+              return acc + price * quantity;
+            }, 0);
 
-          excelData.push([
-            invoiceNumber,
-            residentialName,
-            totalPrice.toFixed(2),
-            '' // Vyplatené - prázdne
-          ]);
+            // Získať číslo faktúry (iba čísla, bez roku)
+            let invoiceNumber = invoice.invoice_number || '';
+            // Ak je formát YYYYNNNN, vezmi len posledné 4 číslice
+            if (invoiceNumber.length === 8 && /^\d{8}$/.test(invoiceNumber)) {
+              invoiceNumber = invoiceNumber.substring(4);
+            } else if (invoiceNumber.includes('/')) {
+              // Starý formát: 00001/2026
+              invoiceNumber = invoiceNumber.split('/')[0];
+            }
+            // Odstrániť úvodné nuly
+            invoiceNumber = invoiceNumber.replace(/^0+/, '') || invoiceNumber;
+
+            // Použiť invoice_name namiesto residential_company_name
+            const invoiceName = invoice.invoice_name || '';
+
+            excelData.push([
+              invoiceNumber,
+              invoiceName,
+              totalPrice.toFixed(2),
+              '' // Vyplatené - prázdne
+            ]);
+          }
         }
         
         // Vytvoriť worksheet
@@ -655,16 +692,18 @@ const Invoices = () => {
           { wch: 12 }, // Vyplatené
         ];
         
-        // Formátovanie hlavičky (prvý riadok)
+        // Formátovanie hlavičky (prvý riadok) - hlavná firma väčšia
         if (worksheet['A1']) {
           worksheet['A1'].s = {
-            font: { bold: true, sz: 14 },
+            font: { bold: true, sz: 18 },
             alignment: { horizontal: 'left' }
           };
         }
         
         // Formátovanie hlavičky tabuľky (tretí riadok)
-        ['A3', 'B3', 'C3', 'D3'].forEach(cell => {
+        const headerRow = 3;
+        ['A', 'B', 'C', 'D'].forEach(col => {
+          const cell = `${col}${headerRow}`;
           if (worksheet[cell]) {
             worksheet[cell].s = {
               font: { bold: true },
@@ -672,6 +711,30 @@ const Invoices = () => {
             };
           }
         });
+        
+        // Formátovanie názvov residential companies (tučné a väčšie)
+        let currentRow = headerRow + 1; // Začneme za hlavičkou tabuľky
+        for (let i = 0; i < residentialCompanyNames.length; i++) {
+          const residentialName = residentialCompanyNames[i];
+          
+          // Prázdny riadok (ak nie je prvá skupina)
+          if (i > 0) {
+            currentRow++;
+          }
+          
+          // Riadok s názvom residential company
+          currentRow++;
+          const nameCell = `A${currentRow}`;
+          if (worksheet[nameCell]) {
+            worksheet[nameCell].s = {
+              font: { bold: true, sz: 14 },
+              alignment: { horizontal: 'left' }
+            };
+          }
+          
+          // Preskočiť faktúry tejto skupiny
+          currentRow += invoicesByResidential[residentialName].length;
+        }
         
         // Formátovanie stĺpca Suma (číselný formát)
         const dataStartRow = 4; // Začiatok dát (po hlavičkách)
