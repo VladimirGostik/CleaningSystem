@@ -295,6 +295,7 @@ const CompanyDashboard = () => {
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Zaplatené</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Výdavky</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Mesačné faktúry</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Mesačný obrat</th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Zisk</th>
                   <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Akcie</th>
                 </tr>
@@ -324,6 +325,9 @@ const CompanyDashboard = () => {
                           <span className="font-semibold">{stats.monthlyCount}</span>
                           <span className="text-xs text-gray-500">({stats.monthlyTotal.toFixed(2)} €)</span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-blue-600">
+                        {stats.monthlyTotal.toFixed(2)} €
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-right text-sm font-bold ${stats.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {stats.profit.toFixed(2)} €

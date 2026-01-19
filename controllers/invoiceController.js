@@ -638,18 +638,30 @@ exports.getInvoiceStatistics = async (req, res) => {
     // Build where clause for date filtering
     const whereClause = {};
     if (fromDate && toDate) {
-      // Ensure dates are properly formatted
-      const startDate = new Date(fromDate);
-      const endDate = new Date(toDate);
-      // Set end date to end of day
-      endDate.setHours(23, 59, 59, 999);
-      
-      whereClause.issue_date = {
-        [Op.between]: [startDate, endDate]
-      };
+      try {
+        // Ensure dates are properly formatted
+        const startDate = new Date(fromDate);
+        const endDate = new Date(toDate);
+        
+        // Validate dates
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return res.status(400).json({ error: 'Invalid date format' });
+        }
+        
+        // Set end date to end of day
+        endDate.setHours(23, 59, 59, 999);
+        
+        whereClause.issue_date = {
+          [Op.between]: [startDate, endDate]
+        };
+      } catch (dateError) {
+        console.error('Date parsing error:', dateError);
+        return res.status(400).json({ error: 'Invalid date format', details: dateError.message });
+      }
     }
 
     // Get all invoices with services for the date range
+    // Use separate: true to avoid N+1 query problem
     const invoices = await Invoice.findAll({
       where: whereClause,
       include: [
@@ -658,6 +670,7 @@ exports.getInvoiceStatistics = async (req, res) => {
           as: 'services',
           attributes: ['id', 'price', 'quantity'],
           required: false, // LEFT JOIN - include invoices even without services
+          separate: true, // Use separate query to avoid N+1
         }
       ],
     });
@@ -667,25 +680,35 @@ exports.getInvoiceStatistics = async (req, res) => {
     let totalInvoicesCount = invoices.length; // Počet vystavených faktúr
     let unpaidInvoicesCount = 0; // Počet neuhradených faktúr
 
-    invoices.forEach(invoice => {
-      // Calculate total price for each invoice
-      const invoiceTotal = (invoice.services || []).reduce((acc, service) => {
-        if (!service) return acc;
-        const price = parseFloat(service.price) || 0;
-        const quantity = parseInt(service.quantity, 10) || 0;
-        return acc + (price * quantity);
-      }, 0);
+    for (const invoice of invoices) {
+      try {
+        // Calculate total price for each invoice
+        const services = invoice.services || [];
+        let invoiceTotal = 0;
+        
+        if (services.length > 0) {
+          invoiceTotal = services.reduce((acc, service) => {
+            if (!service) return acc;
+            const price = parseFloat(service.price) || 0;
+            const quantity = parseInt(service.quantity, 10) || 0;
+            return acc + (price * quantity);
+          }, 0);
+        }
 
-      // Add to revenue if paid
-      if (invoice.status === 'paid') {
-        totalRevenue += invoiceTotal;
-      }
+        // Add to revenue if paid
+        if (invoice.status === 'paid') {
+          totalRevenue += invoiceTotal;
+        }
 
-      // Count unpaid invoices (not paid status)
-      if (invoice.status !== 'paid') {
-        unpaidInvoicesCount++;
+        // Count unpaid invoices (not paid status)
+        if (invoice.status !== 'paid') {
+          unpaidInvoicesCount++;
+        }
+      } catch (invoiceError) {
+        console.error(`Error processing invoice ${invoice.id}:`, invoiceError);
+        // Continue with next invoice
       }
-    });
+    }
 
     res.status(200).json({
       totalRevenue: totalRevenue.toFixed(2),
@@ -696,6 +719,10 @@ exports.getInvoiceStatistics = async (req, res) => {
     console.error('Error fetching invoice statistics:', error);
     console.error('Error details:', error.message);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
