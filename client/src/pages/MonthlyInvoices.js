@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout';
 import AddMonthlyInvoice from '../modals/AddMonthlyInvoice';
 import { addMonthlyInvoice, getMonthlyInvoices, deleteMonthlyInvoice } from '../services/monthlyInvoiceService';
@@ -6,6 +7,7 @@ import InvoiceTable from '../components/InvoiceTable';
 import FilterInput from '../components/FilterInput';
 
 const MonthlyInvoices = () => {
+  const location = useLocation();
   const [showModal, setShowModal] = useState(false);
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
@@ -65,6 +67,15 @@ const MonthlyInvoices = () => {
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
+
+  // Restore filters from location state when navigating back
+  // Filters are automatically restored by FilterInput component
+  useEffect(() => {
+    if (location.state) {
+      // FilterInput component will automatically load and apply filters
+      // No additional action needed here
+    }
+  }, [location.state]);
 
   const handleAddInvoice = async ({ invoiceData, servicesData }) => {
     try {

@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import { useNavigate, useLocation } from 'react-router-dom';
 import MarkAsPaidModal from '../modals/MarkAsPaidModal';
-import { PDFViewer } from '@react-pdf/renderer';
+import { PDFViewer, pdf } from '@react-pdf/renderer';
 import InvoiceExtendedPdf from './InvoiceExtendedPdf';
 import { getResidentialCompanies } from '../services/companyService';
 
@@ -26,6 +27,8 @@ const InvoiceTableExtended = ({
   const allSelected = invoices.length > 0 && invoices.every(invoice => selectedInvoiceIds.includes(invoice.id));
   const [residentialCompaniesMap, setResidentialCompaniesMap] = useState({}); // Map of residential companies by ID
   const actionsRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchResidentialCompanies = async () => {
@@ -119,6 +122,11 @@ const InvoiceTableExtended = ({
   const handlePdfView = (invoice) => {
     setSelectedInvoice(invoice);
     setShowPdfModal(true);
+  };
+
+  const handleViewDetail = (invoice) => {
+    // Navigate to detail page with current location state to preserve filters
+    navigate(`/invoices/${invoice.id}`, { state: location.state });
   };
 
   return (
@@ -228,6 +236,15 @@ const InvoiceTableExtended = ({
                       <button
                         className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
                         onClick={() => {
+                          handleViewDetail(invoice);
+                          setShowActions(null);
+                        }}
+                      >
+                        Detail
+                      </button>
+                      <button
+                        className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
+                        onClick={() => {
                           handlePdfView(invoice);
                           setShowActions(null);
                         }}
@@ -292,13 +309,60 @@ const InvoiceTableExtended = ({
           <div className="bg-white p-4 rounded-lg shadow-lg w-full max-w-4xl max-h-screen overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-green-600">Faktúra v PDF</h2>
-              <button
-                type="button"
-                className="bg-gray-300 text-black py-1 px-3 rounded-md hover:bg-gray-400 transition duration-300"
-                onClick={() => setShowPdfModal(false)}
-              >
-                Zavrieť
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="bg-green-600 text-white py-1 px-3 rounded-md hover:bg-green-700 transition duration-300"
+                  onClick={async () => {
+                    try {
+                      const blob = await pdf(<InvoiceExtendedPdf invoice={selectedInvoice} />).toBlob();
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      
+                      // Vytvoriť názov súboru podľa firmy, mesiac a rok
+                      const companyName = selectedInvoice.company_name || 'Faktura';
+                      const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
+                      
+                      let month = '';
+                      let year = '';
+                      if (selectedInvoice.billing_month) {
+                        const billingMonth = parseInt(selectedInvoice.billing_month);
+                        if (!isNaN(billingMonth) && billingMonth >= 1 && billingMonth <= 12) {
+                          month = billingMonth.toString();
+                        }
+                      }
+                      if (selectedInvoice.issue_date) {
+                        const date = new Date(selectedInvoice.issue_date);
+                        if (!month) {
+                          month = (date.getMonth() + 1).toString();
+                        }
+                        year = date.getFullYear().toString();
+                      }
+                      
+                      const fileName = month && year 
+                        ? `${sanitizedCompanyName}_${month}_${year}.pdf`
+                        : `${sanitizedCompanyName}.pdf`;
+                      
+                      link.setAttribute('download', fileName);
+                      document.body.appendChild(link);
+                      link.click();
+                      link.parentNode.removeChild(link);
+                    } catch (error) {
+                      console.error('Error downloading PDF:', error);
+                    }
+                  }}
+                >
+                  Stiahnuť PDF
+                </button>
+                <button
+                  type="button"
+                  className="bg-gray-300 text-black py-1 px-3 rounded-md hover:bg-gray-400 transition duration-300"
+                  onClick={() => setShowPdfModal(false)}
+                >
+                  Zavrieť
+                </button>
+              </div>
             </div>
             <PDFViewer style={{ width: '100%', height: '80vh' }}>
               <InvoiceExtendedPdf invoice={selectedInvoice} />

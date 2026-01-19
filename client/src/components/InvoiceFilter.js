@@ -20,6 +20,7 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
     }
     return {
       invoiceNumber: '',
+      invoiceName: '',
       selectedCompanies: [],
       selectedResidentialCompanies: [],
       selectedStatus: '',
@@ -33,6 +34,7 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
   const savedFilters = loadSavedFilters();
 
   const [invoiceNumber, setInvoiceNumber] = useState(savedFilters.invoiceNumber);
+  const [invoiceName, setInvoiceName] = useState(savedFilters.invoiceName || '');
   const [companyOptions, setCompanyOptions] = useState([]);
   const [selectedCompanies, setSelectedCompanies] = useState(savedFilters.selectedCompanies);
   const [residentialCompanyOptions, setResidentialCompanyOptions] = useState([]);
@@ -79,6 +81,7 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
   useEffect(() => {
     const filtersToSave = {
       invoiceNumber,
+      invoiceName,
       selectedCompanies,
       selectedResidentialCompanies,
       selectedStatus,
@@ -95,6 +98,7 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
     }
   }, [
     invoiceNumber,
+    invoiceName,
     selectedCompanies,
     selectedResidentialCompanies,
     selectedStatus,
@@ -108,6 +112,7 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
   useEffect(() => {
     const filters = {
       invoice_number: invoiceNumber.trim(),
+      invoice_name: invoiceName.trim(),
       company_ids: selectedCompanies.map((company) => company.value),
       residential_company_ids: selectedResidentialCompanies.map((company) => company.value),
       status: selectedStatus,
@@ -120,6 +125,7 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
     onFilter(filters);
   }, [
     invoiceNumber,
+    invoiceName,
     selectedCompanies,
     selectedResidentialCompanies,
     selectedStatus,
@@ -133,6 +139,7 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
   // Reset all filters
   const handleResetFilters = () => {
     setInvoiceNumber('');
+    setInvoiceName('');
     setSelectedCompanies([]);
     setSelectedResidentialCompanies([]);
     setSelectedStatus('');
@@ -167,6 +174,21 @@ const InvoiceFilter = ({ invoices, onFilter }) => {
             value={invoiceNumber}
             onChange={(e) => setInvoiceNumber(e.target.value)}
             placeholder="Zadajte číslo faktúry"
+          />
+        </div>
+
+        {/* Invoice Name */}
+        <div>
+          <label className="block text-gray-700 mb-2" htmlFor="invoiceName">
+            Názov faktúry:
+          </label>
+          <input
+            type="text"
+            id="invoiceName"
+            className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+            value={invoiceName}
+            onChange={(e) => setInvoiceName(e.target.value)}
+            placeholder="Zadajte názov faktúry"
           />
         </div>
 

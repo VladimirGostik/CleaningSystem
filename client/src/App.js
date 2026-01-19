@@ -6,10 +6,12 @@ import EmployeeDashboard from './pages/EmployeeDashboard';
 import ProtectedRoute from './pages/ProtectedRoute';
 import AuthProvider from './context/AuthContext';
 import Invoices from './pages/Invoices';
+import InvoiceDetail from './pages/InvoiceDetail';
 import ResidentialCompanies from './pages/ResidentialCompanies';
 import Expanses from './pages/Expanses';
 import Employees from './pages/Employees';
 import MonthlyInvoices from './pages/MonthlyInvoices';
+import MonthlyInvoiceDetail from './pages/MonthlyInvoiceDetail';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -27,7 +29,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
+              <Route
                 path="/invoices"
                 element={
                   <ProtectedRoute>
@@ -36,10 +38,26 @@ function App() {
                 }
               />
               <Route
+                path="/invoices/:id"
+                element={
+                  <ProtectedRoute>
+                    <InvoiceDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/monthly-invoices"
                 element={
                   <ProtectedRoute>
                     <MonthlyInvoices/>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/monthly-invoices/:id"
+                element={
+                  <ProtectedRoute>
+                    <MonthlyInvoiceDetail />
                   </ProtectedRoute>
                 }
               />

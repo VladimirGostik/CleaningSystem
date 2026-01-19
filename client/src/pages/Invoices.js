@@ -1,5 +1,6 @@
 // src/pages/Invoices.js
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import ImportExpensesModal from '../modals/ImportExpensesModal'; // Nový import
 import AdminLayout from '../layouts/AdminLayout';
 import { toast } from 'react-toastify';
@@ -13,6 +14,8 @@ import InvoiceFilter from '../components/InvoiceFilter'; // Import the filter co
 import MarkAsPaidModal from '../modals/MarkAsPaidModal'; // Import the MarkAsPaidModal
 import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Import BulkInvoiceDocument
 import { pdf } from '@react-pdf/renderer'; // Import the pdf function
+import * as XLSX from 'xlsx'; // Import xlsx for Excel export
+import { getResidentialCompanyById } from '../services/companyService';
 import { 
   getInvoices, 
   addInvoice, 
@@ -29,6 +32,7 @@ import {
 } from '../services/invoices';
 
 const Invoices = () => {
+  const location = useLocation();
   const [allInvoices, setAllInvoices] = useState([]); // All fetched invoices
   const [filteredInvoices, setFilteredInvoices] = useState([]); // Invoices after filtering
   const [showAddInvoiceModal, setShowAddInvoiceModal] = useState(false); // Add Invoice Modal
@@ -96,6 +100,16 @@ const Invoices = () => {
   useEffect(() => {
     fetchInvoices();
   }, [fetchInvoices]);
+
+  // Restore filters from location state when navigating back
+  // Filters are automatically restored by InvoiceFilter component from localStorage
+  // This effect ensures filters are reapplied when navigating back
+  useEffect(() => {
+    if (location.state) {
+      // InvoiceFilter component will automatically load and apply filters from localStorage
+      // No additional action needed here
+    }
+  }, [location.state]);
 
   // Handlers for actions
   const handleEdit = (invoiceId) => {
@@ -191,6 +205,7 @@ const Invoices = () => {
   const handleFilterChange = useCallback((filters) => {
     const {
       invoice_number,
+      invoice_name,
       company_ids,
       residential_company_ids,
       status,
@@ -205,6 +220,14 @@ const Invoices = () => {
       if (
         invoice_number &&
         !invoice.invoice_number.toLowerCase().includes(invoice_number.toLowerCase())
+      ) {
+        return false;
+      }
+
+      // Filter by invoice name
+      if (
+        invoice_name &&
+        !invoice.invoice_name.toLowerCase().includes(invoice_name.toLowerCase())
       ) {
         return false;
       }
@@ -342,19 +365,400 @@ const Invoices = () => {
     try {
       setIsGeneratingPDF(true);
       const selectedInvoices = allInvoices.filter(invoice => selectedInvoiceIds.includes(invoice.id));
-      const blob = await pdf(<BulkInvoiceDocument invoices={selectedInvoices} />).toBlob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'bulk_invoices.pdf');
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      toast.success('Bulk PDF úspešne stiahnutý');
-      setShowBulkActions(false); // Close bulk actions after successful operation
+      
+      // Rozdelenie faktúr podľa id_company (hlavnej firmy)
+      const invoicesByCompany = {};
+      
+      for (const invoice of selectedInvoices) {
+        const companyId = invoice.id_company || 'bez_firmy';
+        const companyName = invoice.company_name || `Firma_${companyId}`;
+        
+        if (!invoicesByCompany[companyId]) {
+          invoicesByCompany[companyId] = {
+            companyName: companyName,
+            invoices: []
+          };
+        }
+        
+        invoicesByCompany[companyId].invoices.push(invoice);
+      }
+
+      // Získať mesiac a rok z faktúr
+      const getMonthYear = (invoices) => {
+        const monthYearCounts = {};
+        for (const invoice of invoices) {
+          let invoiceMonth = '';
+          let invoiceYear = '';
+          
+          if (invoice.billing_month) {
+            const billingMonth = parseInt(invoice.billing_month);
+            if (!isNaN(billingMonth) && billingMonth >= 1 && billingMonth <= 12) {
+              invoiceMonth = billingMonth.toString();
+            }
+          }
+          
+          if (invoice.issue_date) {
+            const date = new Date(invoice.issue_date);
+            if (!invoiceMonth) {
+              invoiceMonth = (date.getMonth() + 1).toString();
+            }
+            invoiceYear = date.getFullYear().toString();
+          }
+          
+          if (invoiceMonth && invoiceYear) {
+            const key = `${invoiceMonth}/${invoiceYear}`;
+            monthYearCounts[key] = (monthYearCounts[key] || 0) + 1;
+          }
+        }
+        
+        let maxCount = 0;
+        let mostCommon = '';
+        for (const [key, count] of Object.entries(monthYearCounts)) {
+          if (count > maxCount) {
+            maxCount = count;
+            mostCommon = key;
+          }
+        }
+        
+        if (mostCommon) {
+          return mostCommon.split('/');
+        } else if (selectedInvoices[0]?.issue_date) {
+          const date = new Date(selectedInvoices[0].issue_date);
+          return [(date.getMonth() + 1).toString(), date.getFullYear().toString()];
+        }
+        return ['', ''];
+      };
+
+      // Ak je len jedna firma, stiahnuť jeden PDF
+      if (Object.keys(invoicesByCompany).length === 1) {
+        const companyId = Object.keys(invoicesByCompany)[0];
+        const { companyName, invoices } = invoicesByCompany[companyId];
+        const [month, year] = getMonthYear(invoices);
+        
+        // Sanitize company name for filename
+        const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
+        const fileName = month && year 
+          ? `${sanitizedCompanyName}_${month}_${year}.pdf`
+          : `${sanitizedCompanyName}.pdf`;
+        
+        const blob = await pdf(<BulkInvoiceDocument invoices={invoices} />).toBlob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        toast.success('PDF úspešne stiahnutý');
+      } else {
+        // Viac firiem - stiahnuť viacero PDF súborov
+        const companyNames = [];
+        for (const companyId of Object.keys(invoicesByCompany)) {
+          const { companyName, invoices } = invoicesByCompany[companyId];
+          const [month, year] = getMonthYear(invoices);
+          
+          // Sanitize company name for filename
+          const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
+          const fileName = month && year 
+            ? `${sanitizedCompanyName}_${month}_${year}.pdf`
+            : `${sanitizedCompanyName}.pdf`;
+          
+          companyNames.push(companyName);
+          
+          const blob = await pdf(<BulkInvoiceDocument invoices={invoices} />).toBlob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', fileName);
+          document.body.appendChild(link);
+          link.click();
+          link.parentNode.removeChild(link);
+          
+          // Malé oneskorenie medzi stiahnutiami
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        toast.success(`PDF úspešne stiahnuté (${companyNames.length} firiem: ${companyNames.join(', ')})`);
+      }
+      
+      setShowBulkActions(false);
     } catch (error) {
       console.error('Error generating bulk PDF:', error);
       toast.error('Chyba pri generovaní PDF');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleBulkExportExcel = async () => {
+    if (selectedInvoiceIds.length === 0) {
+      toast.warn('Žiadne faktúry na export');
+      return;
+    }
+
+    try {
+      setIsGeneratingPDF(true);
+      const selectedInvoices = allInvoices.filter(invoice => selectedInvoiceIds.includes(invoice.id));
+      
+      // Rozdelenie faktúr podľa id_company (hlavnej firmy)
+      const invoicesByCompany = {};
+      
+      for (const invoice of selectedInvoices) {
+        const companyId = invoice.id_company || 'bez_firmy';
+        const companyName = invoice.company_name || `Firma_${companyId}`;
+        
+        if (!invoicesByCompany[companyId]) {
+          invoicesByCompany[companyId] = {
+            companyName: companyName,
+            invoices: []
+          };
+        }
+        
+        invoicesByCompany[companyId].invoices.push(invoice);
+      }
+
+      // Vytvorenie workbooku
+      const workbook = XLSX.utils.book_new();
+
+      // Pre každú firmu vytvoríme sheet
+      for (const companyId of Object.keys(invoicesByCompany)) {
+        const { companyName, invoices } = invoicesByCompany[companyId];
+        
+        // Zoradiť faktúry podľa čísla faktúry
+        invoices.sort((a, b) => {
+          const numA = parseInt(a.invoice_number?.replace(/\D/g, '') || '0');
+          const numB = parseInt(b.invoice_number?.replace(/\D/g, '') || '0');
+          return numA - numB;
+        });
+
+        // Získať mesiac a rok z faktúr
+        // Skúsiť nájsť najčastejší mesiac/rok alebo použiť z prvej faktúry
+        let month = '';
+        let year = '';
+        
+        // Zozbierať všetky mesiace a roky z faktúr
+        const monthYearCounts = {};
+        for (const invoice of invoices) {
+          let invoiceMonth = '';
+          let invoiceYear = '';
+          
+          if (invoice.billing_month) {
+            const billingMonth = parseInt(invoice.billing_month);
+            if (!isNaN(billingMonth) && billingMonth >= 1 && billingMonth <= 12) {
+              invoiceMonth = billingMonth.toString();
+            }
+          }
+          
+          if (invoice.issue_date) {
+            const date = new Date(invoice.issue_date);
+            if (!invoiceMonth) {
+              invoiceMonth = (date.getMonth() + 1).toString();
+            }
+            invoiceYear = date.getFullYear().toString();
+          }
+          
+          if (invoiceMonth && invoiceYear) {
+            const key = `${invoiceMonth}/${invoiceYear}`;
+            monthYearCounts[key] = (monthYearCounts[key] || 0) + 1;
+          }
+        }
+        
+        // Nájsť najčastejší mesiac/rok
+        let maxCount = 0;
+        let mostCommon = '';
+        for (const [key, count] of Object.entries(monthYearCounts)) {
+          if (count > maxCount) {
+            maxCount = count;
+            mostCommon = key;
+          }
+        }
+        
+        if (mostCommon) {
+          [month, year] = mostCommon.split('/');
+        } else {
+          // Fallback na prvú faktúru
+          const firstInvoice = invoices[0];
+          if (firstInvoice.issue_date) {
+            const date = new Date(firstInvoice.issue_date);
+            month = (date.getMonth() + 1).toString();
+            year = date.getFullYear().toString();
+          }
+        }
+
+        // Vytvoriť hlavný názov: "Názov firmy mesiac/rok"
+        const headerTitle = month && year ? `${companyName} ${month}/${year}` : companyName;
+
+        // Pripraviť dáta pre Excel
+        const excelData = [];
+        
+        // Hlavička
+        excelData.push([headerTitle]);
+        excelData.push([]); // Prázdny riadok
+        
+        // Hlavička tabuľky
+        excelData.push(['Č. faktúry', '', 'Suma', 'Vyplatené']);
+        
+        // Riadky s faktúrami
+        for (const invoice of invoices) {
+          // Získať názov rezidenčnej firmy
+          let residentialName = invoice.residential_company_name || '';
+          
+          if (!residentialName && invoice.id_residential_company) {
+            try {
+              const residentialCompany = await getResidentialCompanyById(invoice.id_residential_company);
+              residentialName = residentialCompany.company_name || '';
+            } catch (error) {
+              console.error('Error fetching residential company:', error);
+            }
+          }
+          
+          // Ak stále nie je názov, použiť invoice_name alebo prázdny string
+          if (!residentialName) {
+            residentialName = invoice.invoice_name || '';
+          }
+          
+          // Vypočítať celkovú sumu
+          const totalPrice = (invoice.services || []).reduce((acc, service) => {
+            const price = parseFloat(service.price) || 0;
+            const quantity = parseInt(service.quantity, 10) || 0;
+            return acc + price * quantity;
+          }, 0);
+
+          // Získať číslo faktúry (iba čísla, bez roku)
+          let invoiceNumber = invoice.invoice_number || '';
+          // Ak je formát YYYYNNNN, vezmi len posledné 4 číslice
+          if (invoiceNumber.length === 8 && /^\d{8}$/.test(invoiceNumber)) {
+            invoiceNumber = invoiceNumber.substring(4);
+          } else if (invoiceNumber.includes('/')) {
+            // Starý formát: 00001/2026
+            invoiceNumber = invoiceNumber.split('/')[0];
+          }
+          // Odstrániť úvodné nuly
+          invoiceNumber = invoiceNumber.replace(/^0+/, '') || invoiceNumber;
+
+          excelData.push([
+            invoiceNumber,
+            residentialName,
+            totalPrice.toFixed(2),
+            '' // Vyplatené - prázdne
+          ]);
+        }
+        
+        // Vytvoriť worksheet
+        const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+        
+        // Nastaviť šírku stĺpcov
+        worksheet['!cols'] = [
+          { wch: 12 }, // Č. faktúry
+          { wch: 40 }, // Popis/Rezidenčná firma
+          { wch: 12 }, // Suma
+          { wch: 12 }, // Vyplatené
+        ];
+        
+        // Formátovanie hlavičky (prvý riadok)
+        if (worksheet['A1']) {
+          worksheet['A1'].s = {
+            font: { bold: true, sz: 14 },
+            alignment: { horizontal: 'left' }
+          };
+        }
+        
+        // Formátovanie hlavičky tabuľky (tretí riadok)
+        ['A3', 'B3', 'C3', 'D3'].forEach(cell => {
+          if (worksheet[cell]) {
+            worksheet[cell].s = {
+              font: { bold: true },
+              alignment: { horizontal: 'center' }
+            };
+          }
+        });
+        
+        // Formátovanie stĺpca Suma (číselný formát)
+        const dataStartRow = 4; // Začiatok dát (po hlavičkách)
+        for (let row = dataStartRow; row <= excelData.length; row++) {
+          const cell = `C${row}`;
+          if (worksheet[cell]) {
+            worksheet[cell].z = '#,##0.00';
+          }
+        }
+        
+        // Pridať sheet do workbooku (názov sheetu je obmedzený na 31 znakov)
+        const sheetName = companyName.length > 31 ? companyName.substring(0, 31) : companyName;
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      }
+
+      // Exportovať do Excelu
+      // Vytvoriť názov súboru podľa firiem a mesiac/rok
+      const companyNames = Object.values(invoicesByCompany).map(c => c.companyName);
+      const allInvoicesForMonthYear = selectedInvoices;
+      const [month, year] = (() => {
+        const monthYearCounts = {};
+        for (const invoice of allInvoicesForMonthYear) {
+          let invoiceMonth = '';
+          let invoiceYear = '';
+          
+          if (invoice.billing_month) {
+            const billingMonth = parseInt(invoice.billing_month);
+            if (!isNaN(billingMonth) && billingMonth >= 1 && billingMonth <= 12) {
+              invoiceMonth = billingMonth.toString();
+            }
+          }
+          
+          if (invoice.issue_date) {
+            const date = new Date(invoice.issue_date);
+            if (!invoiceMonth) {
+              invoiceMonth = (date.getMonth() + 1).toString();
+            }
+            invoiceYear = date.getFullYear().toString();
+          }
+          
+          if (invoiceMonth && invoiceYear) {
+            const key = `${invoiceMonth}/${invoiceYear}`;
+            monthYearCounts[key] = (monthYearCounts[key] || 0) + 1;
+          }
+        }
+        
+        let maxCount = 0;
+        let mostCommon = '';
+        for (const [key, count] of Object.entries(monthYearCounts)) {
+          if (count > maxCount) {
+            maxCount = count;
+            mostCommon = key;
+          }
+        }
+        
+        if (mostCommon) {
+          return mostCommon.split('/');
+        } else if (allInvoicesForMonthYear[0]?.issue_date) {
+          const date = new Date(allInvoicesForMonthYear[0].issue_date);
+          return [(date.getMonth() + 1).toString(), date.getFullYear().toString()];
+        }
+        return ['', ''];
+      })();
+      
+      // Sanitize company names for filename
+      const sanitizedCompanyNames = companyNames.map(name => name.replace(/[^a-zA-Z0-9]/g, '_')).join('_');
+      let fileName;
+      
+      if (Object.keys(invoicesByCompany).length === 1) {
+        // Jedna firma
+        fileName = month && year 
+          ? `${sanitizedCompanyNames}_${month}_${year}.xlsx`
+          : `${sanitizedCompanyNames}.xlsx`;
+      } else {
+        // Viac firiem - dať názvy za sebou
+        fileName = month && year 
+          ? `${sanitizedCompanyNames}_${month}_${year}.xlsx`
+          : `${sanitizedCompanyNames}.xlsx`;
+      }
+      
+      XLSX.writeFile(workbook, fileName);
+      
+      toast.success(`Excel úspešne exportovaný (${Object.keys(invoicesByCompany).length} firiem)`);
+      setShowBulkActions(false);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('Chyba pri exporte do Excelu');
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -486,6 +890,12 @@ const Invoices = () => {
                 onClick={handleBulkDownload}
               >
                 Stiahnuť PDF
+              </button>
+              <button
+                className="bg-orange-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-orange-700 transition duration-300"
+                onClick={handleBulkExportExcel}
+              >
+                Export Excel
               </button>
               <button
                 className="bg-red-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-red-700 transition duration-300"

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import EditMonthlyInvoice from '../modals/EditMonthlyInvoice';
-import ViewMonthlyInvoice from '../modals/ViewMonthlyInvoice';
 import InvoicePdf from './InvoicePDF';
 import { PDFViewer } from '@react-pdf/renderer';
 import { updateMonthlyInvoice } from '../services/monthlyInvoiceService';
@@ -11,12 +11,13 @@ import { getResidentialCompanies } from '../services/companyService';
 
 const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showActions, setShowActions] = useState(null);
   const [residentialCompaniesMap, setResidentialCompaniesMap] = useState({}); // Map of residential companies by ID
   const actionsRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchResidentialCompanies = async () => {
@@ -59,8 +60,8 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
   };
 
   const handleView = (invoice) => {
-    setSelectedInvoice(invoice);
-    setShowViewModal(true);
+    // Navigate to detail page with current location state to preserve filters
+    navigate(`/monthly-invoices/${invoice.id}`, { state: location.state });
   };
 
   const handlePdfView = (invoice) => {
@@ -167,14 +168,6 @@ const InvoiceTable = ({ invoices, onDelete, fetchInvoices }) => {
         <EditMonthlyInvoice
           closeModal={() => setShowEditModal(false)}
           onSubmit={handleUpdateInvoice}
-          invoice={selectedInvoice}
-        />
-      )}
-
-      {/* ViewMonthlyInvoice Modal */}
-      {showViewModal && selectedInvoice && (
-        <ViewMonthlyInvoice
-          closeModal={() => setShowViewModal(false)}
           invoice={selectedInvoice}
         />
       )}
