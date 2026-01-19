@@ -1,6 +1,6 @@
 // src/components/InvoicePdf.js
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
 import PropTypes from 'prop-types';
 
 const colors = {
@@ -97,6 +97,31 @@ const styles = StyleSheet.create({
     boldText: {
         fontWeight: 'bold',
     },
+    paymentSection: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 20,
+    },
+    paymentInfo: {
+        flex: 1,
+        padding: 15,
+        borderRadius: 10,
+        textAlign: 'left',
+        border: '2 solid #2f5597',
+        marginRight: 10,
+    },
+    qrCodeContainer: {
+        flex: 0,
+        padding: 15,
+        borderRadius: 10,
+        border: '2 solid #2f5597',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    qrCode: {
+        width: 120,
+        height: 120,
+    },
     invoiceDetailsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -190,16 +215,16 @@ const formatDescription = (desc, billing_month, issue_date) => {
       .replace(/{mesiac\/rok}/g, () => {
         const invoiceDateObj = new Date(issue_date);
         let invoiceYear = invoiceDateObj.getFullYear();
-        const monthNum = parseInt(billing_month, 10);
         return `${billing_month}/${invoiceYear}`;
       })
       .replace(/{mesiac}/g, billing_month);
     return formatted;
-  }; 
+};
 
 const InvoiceExtendedPdf = ({ invoice }) => {
     const {
         invoice_number,
+        invoice_name,
         issue_date,
         due_date,
         billing_month,
@@ -253,6 +278,26 @@ const InvoiceExtendedPdf = ({ invoice }) => {
     );
 
     const formattedDescriptionAbove = formatDescription(description_above_services, billing_month, issue_date);
+
+    // Funkcia na vytvorenie QR kódu pre platobné údaje
+    const generateQRCodeData = () => {
+        if (!company_iban) return null;
+        
+        // Odstránime medzery z IBAN
+        const cleanIban = company_iban.replace(/\s+/g, '');
+        const amount = totalPrice.toFixed(2);
+        const variableSymbol = invoice_number.replace(/\s+/g, ''); // Odstránime medzery z čísla faktúry
+        const message = invoice_name || '';
+        
+        // Slovenský formát SPAYD (Structured Payment Data)
+        // Format: SPD*1.0*ACC:IBAN*AM:AMOUNT*VS:VARIABLE_SYMBOL*MSG:MESSAGE
+        const qrData = `SPD*1.0*ACC:${cleanIban}*AM:${amount}*VS:${variableSymbol}*MSG:${message}`;
+        
+        // Použijeme službu na generovanie QR kódu
+        return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+    };
+
+    const qrCodeUrl = generateQRCodeData();
 
     return (
         <Document>
@@ -320,20 +365,33 @@ const InvoiceExtendedPdf = ({ invoice }) => {
                 </View>
 
                 {/* Platobné Informácie */}
-                <View style={styles.section}>
-                    {company_iban && (
+                <View style={styles.paymentSection}>
+                    <View style={styles.paymentInfo}>
+                        {company_iban && (
+                            <Text style={styles.infoText}>
+                                <Text style={styles.boldText}>IBAN:</Text> {company_iban}
+                            </Text>
+                        )}
+                        {bank_connection && (
+                            <Text style={styles.infoText}>
+                                <Text style={styles.boldText}>Bankové spojenie:</Text> {bank_connection}
+                            </Text>
+                        )}
                         <Text style={styles.infoText}>
-                            <Text style={styles.boldText}>IBAN:</Text> {company_iban}
+                            <Text style={styles.boldText}>Variabilný symbol:</Text> {invoice_number}
                         </Text>
-                    )}
-                    {bank_connection && (
                         <Text style={styles.infoText}>
-                            <Text style={styles.boldText}>Bankové spojenie:</Text> {bank_connection}
+                            <Text style={styles.boldText}>Forma úhrady:</Text> Prevodom
                         </Text>
+                    </View>
+                    {qrCodeUrl && (
+                        <View style={styles.qrCodeContainer}>
+                            <Image src={qrCodeUrl} style={styles.qrCode} />
+                            <Text style={{ ...styles.infoText, marginTop: 5, fontSize: 8, textAlign: 'center' }}>
+                                QR kód pre platbu
+                            </Text>
+                        </View>
                     )}
-                    <Text style={styles.infoText}>
-                        <Text style={styles.boldText}>Forma úhrady: Prevodom</Text>
-                    </Text>
                 </View>
 
                 {formattedDescriptionAbove && (
@@ -403,6 +461,7 @@ const InvoiceExtendedPdf = ({ invoice }) => {
 InvoiceExtendedPdf.propTypes = {
     invoice: PropTypes.shape({
         invoice_number: PropTypes.string,
+        invoice_name: PropTypes.string,
         issue_date: PropTypes.string,
         due_date: PropTypes.string,
         billing_month: PropTypes.string,
