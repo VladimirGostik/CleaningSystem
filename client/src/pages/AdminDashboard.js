@@ -77,7 +77,7 @@ const CompanyDashboard = () => {
   const fetchMonthlyInvoices = async () => {
     try {
       const res = await getMonthlyInvoices();
-      setMonthlyInvoices(res);
+      setMonthlyInvoices(res || []);
     } catch (error) {
       console.error('Error fetching monthly invoices:', error);
     }
@@ -143,9 +143,22 @@ const CompanyDashboard = () => {
 
     // Calculate monthly invoices stats
     const monthlyTotal = companyMonthlyInvoices.reduce((acc, mi) => {
-      const totalPrice = (mi.services_planned || []).reduce((sum, service) => {
-        return sum + (parseFloat(service.price) || 0) * (parseInt(service.quantity, 10) || 0);
+      // Check if services_planned is an array and has data
+      const services = Array.isArray(mi.services_planned) ? mi.services_planned : [];
+      
+      if (services.length === 0) {
+        // If no services_planned, return 0 (monthly invoices should always have services_planned)
+        return acc;
+      }
+      
+      const totalPrice = services.reduce((sum, service) => {
+        // Ensure service has price and quantity
+        if (!service) return sum;
+        const price = parseFloat(service.price) || 0;
+        const quantity = parseInt(service.quantity, 10) || 0;
+        return sum + (price * quantity);
       }, 0);
+      
       return acc + totalPrice;
     }, 0);
 

@@ -638,8 +638,14 @@ exports.getInvoiceStatistics = async (req, res) => {
     // Build where clause for date filtering
     const whereClause = {};
     if (fromDate && toDate) {
+      // Ensure dates are properly formatted
+      const startDate = new Date(fromDate);
+      const endDate = new Date(toDate);
+      // Set end date to end of day
+      endDate.setHours(23, 59, 59, 999);
+      
       whereClause.issue_date = {
-        [Op.between]: [new Date(fromDate), new Date(toDate)]
+        [Op.between]: [startDate, endDate]
       };
     }
 
@@ -651,6 +657,7 @@ exports.getInvoiceStatistics = async (req, res) => {
           model: Service, 
           as: 'services',
           attributes: ['id', 'price', 'quantity'],
+          required: false, // LEFT JOIN - include invoices even without services
         }
       ],
     });
@@ -663,9 +670,10 @@ exports.getInvoiceStatistics = async (req, res) => {
     invoices.forEach(invoice => {
       // Calculate total price for each invoice
       const invoiceTotal = (invoice.services || []).reduce((acc, service) => {
+        if (!service) return acc;
         const price = parseFloat(service.price) || 0;
         const quantity = parseInt(service.quantity, 10) || 0;
-        return acc + price * quantity;
+        return acc + (price * quantity);
       }, 0);
 
       // Add to revenue if paid
@@ -686,6 +694,8 @@ exports.getInvoiceStatistics = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching invoice statistics:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 };
