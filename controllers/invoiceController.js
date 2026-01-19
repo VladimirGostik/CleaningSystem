@@ -170,13 +170,26 @@ exports.generateMonthlyInvoices = async (req, res) => {
       // Extract and increment the number for the new invoice
       let newNumber = 1;
       if (lastInvoice) {
-        const lastNumberPart = lastInvoice.invoice_number.split('/')[0];
-        newNumber = parseInt(lastNumberPart, 10) + 1;
+        const lastInvoiceNumber = lastInvoice.invoice_number;
+        // Support both old format (00001/2026) and new format (20260001)
+        if (lastInvoiceNumber.includes('/')) {
+          // Old format: 00001/2026
+          const lastNumberPart = lastInvoiceNumber.split('/')[0];
+          newNumber = parseInt(lastNumberPart, 10) + 1;
+        } else {
+          // New format: 20260001 (first 4 digits are year, rest is number)
+          const lastYear = lastInvoiceNumber.substring(0, 4);
+          if (lastYear === invoiceYear.toString()) {
+            const lastNumberPart = lastInvoiceNumber.substring(4);
+            newNumber = parseInt(lastNumberPart, 10) + 1;
+          }
+          // If year doesn't match, start from 1
+        }
       }
 
-      // Format the new invoice number
-      const formattedNumber = newNumber.toString().padStart(5, '0');
-      const invoice_number = `${formattedNumber}/${invoiceYear}`;
+      // Format the new invoice number: YYYYNNNN (e.g., 20260001)
+      const formattedNumber = newNumber.toString().padStart(4, '0');
+      const invoice_number = `${invoiceYear}${formattedNumber}`;
 
       // Create the invoice
       const invoiceData = {
@@ -280,14 +293,27 @@ exports.generateMonthlyInvoicesForCompany = async (req, res) => {
     // Extract and increment the number for the new invoices
     let newNumber = 1;
     if (lastInvoice) {
-      const lastNumberPart = lastInvoice.invoice_number.split('/')[0];
-      newNumber = parseInt(lastNumberPart, 10) + 1;
+      const lastInvoiceNumber = lastInvoice.invoice_number;
+      // Support both old format (00001/2026) and new format (20260001)
+      if (lastInvoiceNumber.includes('/')) {
+        // Old format: 00001/2026
+        const lastNumberPart = lastInvoiceNumber.split('/')[0];
+        newNumber = parseInt(lastNumberPart, 10) + 1;
+      } else {
+        // New format: 20260001 (first 4 digits are year, rest is number)
+        const lastYear = lastInvoiceNumber.substring(0, 4);
+        if (lastYear === invoiceYear.toString()) {
+          const lastNumberPart = lastInvoiceNumber.substring(4);
+          newNumber = parseInt(lastNumberPart, 10) + 1;
+        }
+        // If year doesn't match, start from 1
+      }
     }
 
     for (const template of monthlyInvoices) {
-      // Format the invoice number
-      const formattedNumber = newNumber.toString().padStart(5, '0');
-      const invoice_number = `${formattedNumber}/${invoiceYear}`;
+      // Format the invoice number: YYYYNNNN (e.g., 20260001)
+      const formattedNumber = newNumber.toString().padStart(4, '0');
+      const invoice_number = `${invoiceYear}${formattedNumber}`;
 
       // Create the invoice
       const invoiceData = {
@@ -388,14 +414,43 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
         continue;
       }
 
-      // Nájdeme faktúru pre danú firmu s daným invoice_number (priamo podľa VS)
-      const invoice = await Invoice.findOne({
+      // Nájdeme faktúru pre danú firmu s daným invoice_number
+      // Podporujeme oba formáty: starý (00001/2026) aj nový (20260001)
+      let invoice = await Invoice.findOne({
         where: {
           id_company: foundCompany.id,
           invoice_number: tx.vs,
         },
         include: [{ model: Service, as: 'services' }],
       });
+
+      // Ak faktúra nebola nájdená a VS je v starom formáte, skúsime previesť na nový formát
+      if (!invoice && tx.vs.includes('/')) {
+        const [numberPart, yearPart] = tx.vs.split('/');
+        const newFormat = `${yearPart}${numberPart.padStart(4, '0')}`;
+        invoice = await Invoice.findOne({
+          where: {
+            id_company: foundCompany.id,
+            invoice_number: newFormat,
+          },
+          include: [{ model: Service, as: 'services' }],
+        });
+      }
+
+      // Ak faktúra nebola nájdená a VS je v novom formáte, skúsime previesť na starý formát
+      if (!invoice && !tx.vs.includes('/') && tx.vs.length >= 8) {
+        const yearPart = tx.vs.substring(0, 4);
+        const numberPart = tx.vs.substring(4);
+        const oldFormat = `${numberPart.padStart(5, '0')}/${yearPart}`;
+        invoice = await Invoice.findOne({
+          where: {
+            id_company: foundCompany.id,
+            invoice_number: oldFormat,
+          },
+          include: [{ model: Service, as: 'services' }],
+        });
+      }
+
       if (!invoice) {
         console.error("Faktúra nenájdená:", tx.vs, "pre firmu:", foundCompany.company_name);
         unlinkedTransactions.push({ ...tx, reason: "Faktúra nenájdená" });

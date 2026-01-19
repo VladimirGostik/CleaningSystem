@@ -128,13 +128,25 @@ const AddInvoiceModal = ({ closeModal, onSubmit }) => {
       // Extract and increment the number
       let newNumber = 1;
       if (lastInvoiceNumber) {
-        const lastNumberPart = lastInvoiceNumber.split('/')[0];
-        newNumber = parseInt(lastNumberPart, 10) + 1;
+        // Support both old format (00001/2026) and new format (20260001)
+        if (lastInvoiceNumber.includes('/')) {
+          // Old format: 00001/2026
+          const lastNumberPart = lastInvoiceNumber.split('/')[0];
+          newNumber = parseInt(lastNumberPart, 10) + 1;
+        } else {
+          // New format: 20260001 (first 4 digits are year, rest is number)
+          const lastYear = lastInvoiceNumber.substring(0, 4);
+          if (lastYear === invoiceYear.toString()) {
+            const lastNumberPart = lastInvoiceNumber.substring(4);
+            newNumber = parseInt(lastNumberPart, 10) + 1;
+          }
+          // If year doesn't match, start from 1
+        }
       }
 
-      // Format the new number
-      const formattedNumber = newNumber.toString().padStart(5, '0');
-      const newInvoiceNumber = `${formattedNumber}/${invoiceYear}`;
+      // Format the new number: YYYYNNNN (e.g., 20260001)
+      const formattedNumber = newNumber.toString().padStart(4, '0');
+      const newInvoiceNumber = `${invoiceYear}${formattedNumber}`;
 
       setInvoiceNumber(newInvoiceNumber);
     } catch (error) {

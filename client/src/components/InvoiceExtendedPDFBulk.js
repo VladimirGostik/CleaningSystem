@@ -193,9 +193,6 @@ const formatDescription = (desc, billing_month, issue_date) => {
       const invoiceDateObj = new Date(issue_date);
       let invoiceYear = invoiceDateObj.getFullYear();
       const monthNum = parseInt(billing_month, 10);
-      if (monthNum === 12) {
-        invoiceYear = invoiceYear - 1;
-      }
       return `${billing_month}/${invoiceYear}`;
     })
     .replace(/{mesiac}/g, billing_month);

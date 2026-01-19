@@ -194,10 +194,7 @@ const formatDescription = (desc, month, invoice_date) => {
       const invoiceDateObj = new Date(invoice_date);
       let invoiceYear = invoiceDateObj.getFullYear();
       const invoiceMonth = parseInt(month, 10);
-      // Ak je mesiac fakturácie 12, rok znížime o 1
-      if (invoiceMonth === 12) {
-        invoiceYear = invoiceYear - 1;
-      }
+
       return `${month}/${invoiceYear}`;
     })
     // Potom nahradíme token {mesiac}
