@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../layouts/AdminLayout';
 import AddMonthlyInvoice from '../modals/AddMonthlyInvoice';
 import { addMonthlyInvoice, getMonthlyInvoices, deleteMonthlyInvoice } from '../services/monthlyInvoiceService';
@@ -9,8 +9,28 @@ const MonthlyInvoices = () => {
   const [showModal, setShowModal] = useState(false);
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
+  const [currentFilters, setCurrentFilters] = useState(null); // Store current filters
 
-  const fetchInvoices = async () => {
+  // Helper function to apply filters
+  const applyFilters = (invoicesToFilter, filters) => {
+    if (!filters) {
+      return invoicesToFilter;
+    }
+    
+    let filtered = invoicesToFilter;
+    if (filters.invoiceName) {
+      filtered = filtered.filter(invoice => invoice.invoice_name.toLowerCase().includes(filters.invoiceName.toLowerCase()));
+    }
+    if (filters.companies && filters.companies.length > 0) {
+      filtered = filtered.filter(invoice => filters.companies.includes(invoice.company_name));
+    }
+    if (filters.residentialCompanies && filters.residentialCompanies.length > 0) {
+      filtered = filtered.filter(invoice => filters.residentialCompanies.includes(invoice.residential_company_name));
+    }
+    return filtered;
+  };
+
+  const fetchInvoices = useCallback(async () => {
     try {
       const invoicesData = await getMonthlyInvoices();
       
@@ -29,15 +49,22 @@ const MonthlyInvoices = () => {
       });
       
       setInvoices(invoicesWithTotal);
-      setFilteredInvoices(invoicesWithTotal); // Set initial filtered invoices to all invoices
+      
+      // Reapply filters if they exist, otherwise show all invoices
+      if (currentFilters) {
+        const filtered = applyFilters(invoicesWithTotal, currentFilters);
+        setFilteredInvoices(filtered);
+      } else {
+        setFilteredInvoices(invoicesWithTotal);
+      }
     } catch (error) {
       console.error('Error fetching monthly invoices:', error);
     }
-  };
+  }, [currentFilters]);
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+  }, [fetchInvoices]);
 
   const handleAddInvoice = async ({ invoiceData, servicesData }) => {
     try {
@@ -59,16 +86,21 @@ const MonthlyInvoices = () => {
   };
 
   const handleFilter = (filters) => {
-    let filtered = invoices;
-    if (filters.invoiceName) {
-      filtered = filtered.filter(invoice => invoice.invoice_name.toLowerCase().includes(filters.invoiceName.toLowerCase()));
+    // Check if any filter is active
+    const hasActiveFilters = 
+      (filters.invoiceName && filters.invoiceName.trim()) ||
+      (filters.companies && filters.companies.length > 0) ||
+      (filters.residentialCompanies && filters.residentialCompanies.length > 0);
+    
+    // Store current filters if any are active
+    if (hasActiveFilters) {
+      setCurrentFilters(filters);
+    } else {
+      setCurrentFilters(null);
     }
-    if (filters.companies && filters.companies.length > 0) {
-      filtered = filtered.filter(invoice => filters.companies.includes(invoice.company_name));
-    }
-    if (filters.residentialCompanies && filters.residentialCompanies.length > 0) {
-      filtered = filtered.filter(invoice => filters.residentialCompanies.includes(invoice.residential_company_name));
-    }
+    
+    // Apply filters
+    const filtered = applyFilters(invoices, filters);
     setFilteredInvoices(filtered);
   };
 
