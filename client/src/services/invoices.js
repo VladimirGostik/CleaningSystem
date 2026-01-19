@@ -24,6 +24,21 @@ export const getInvoiceById = async (id) => {
   }
 };
 
+// 📊 Získanie štatistík faktúr
+export const getInvoiceStatistics = async (fromDate, toDate) => {
+  try {
+    const params = new URLSearchParams();
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
+    
+    const response = await axiosInstance.get(`/invoices/statistics?${params.toString()}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching invoice statistics:', error);
+    throw error;
+  }
+};
+
 export const sendTransactionsToBackend = async (transactions) => {
   try {
     // Vyčistiť cache pre unlinkedTransactions pred odoslaním požiadavky

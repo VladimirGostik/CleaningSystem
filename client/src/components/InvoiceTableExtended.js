@@ -142,67 +142,78 @@ const InvoiceTableExtended = ({
             />
           </th>
             <th
-              className="border p-1.5 text-sm text-left cursor-pointer bg-gray-100"
+              className="border p-1 text-xs text-left cursor-pointer bg-gray-100"
               onClick={() => requestSort('invoice_number')}
             >
               Číslo faktúry
             </th>
             <th
-              className="border p-1.5 text-sm text-left cursor-pointer bg-gray-100"
+              className="border p-1 text-xs text-left cursor-pointer bg-gray-100"
               onClick={() => requestSort('issue_date')}
             >
               Dátum vystavenia
             </th>
             <th
-              className="border p-1.5 text-sm text-left cursor-pointer bg-gray-100"
+              className="border p-1 text-xs text-left cursor-pointer bg-gray-100"
               onClick={() => requestSort('company_name')}
             >
               Spoločnosť
             </th>
             <th
-              className="border p-1.5 text-sm text-left cursor-pointer bg-gray-100"
+              className="border p-1 text-xs text-left cursor-pointer bg-gray-100"
               onClick={() => requestSort('invoice_name')}
             >
               Názov faktúry
             </th>
             <th
-              className="border p-1.5 text-sm text-left cursor-pointer bg-gray-100"
+              className="border p-1 text-xs text-left cursor-pointer bg-gray-100"
+              onClick={() => requestSort('residential_company_name')}
+            >
+              Bytový podnik
+            </th>
+            <th
+              className="border p-1 text-xs text-left cursor-pointer bg-gray-100"
               onClick={() => requestSort('total_price')}
             >
               Celková cena
             </th>
             <th
-              className="border p-1.5 text-sm text-left cursor-pointer bg-gray-100"
+              className="border p-1 text-xs text-left cursor-pointer bg-gray-100"
               onClick={() => requestSort('status')}
             >
               Status
             </th>
-            <th className="border p-1.5 text-sm text-left bg-gray-100">Akcie</th>
+            <th className="border p-1 text-xs text-left bg-gray-100">Akcie</th>
           </tr>
         </thead>
         <tbody>
           {sortedInvoices.map((invoice) => (
             <tr key={invoice.id} className="border-b hover:bg-gray-100">
-               <td className="px-3 py-2 border-b border-gray-200 bg-white text-sm">
+               <td className="px-2 py-1 border-b border-gray-200 bg-white text-xs">
                 <input
                   type="checkbox"
                   checked={selectedInvoiceIds.includes(invoice.id)}
                   onChange={(e) => onSelectInvoice(invoice.id, e.target.checked)}
                 />
               </td>
-              <td className="p-1.5 text-sm">{invoice.invoice_number}</td>
-              <td className="p-1.5 text-sm">{formatDate(invoice.issue_date)}</td>
-              <td className="p-1.5 text-sm">{invoice.company_name}</td>
-              <td className="p-1.5 text-sm" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
+              <td className="p-1 text-xs">{invoice.invoice_number}</td>
+              <td className="p-1 text-xs">{formatDate(invoice.issue_date)}</td>
+              <td className="p-1 text-xs">{invoice.company_name}</td>
+              <td className="p-1 text-xs" title={invoice.invoice_name || 'N/A'}>
                 {invoice.invoice_name || 'N/A'}
               </td>
-              <td className="p-1.5 text-sm">
+              <td className="p-1 text-xs" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
+                <span className="truncate block max-w-[150px]" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
+                  {invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}
+                </span>
+              </td>
+              <td className="p-1 text-xs">
                 {invoice.total_price !== undefined
                   ? invoice.total_price.toFixed(2)
                   : 'N/A'}{' '}
                 €
               </td>
-              <td className="p-1.5 text-sm">
+              <td className="p-1 text-xs">
                 {invoice.status === 'paid' && (
                   <span className="text-green-600 font-semibold">Zaplatená</span>
                 )}
@@ -216,7 +227,7 @@ const InvoiceTableExtended = ({
                   <span className="text-orange-600 font-semibold">Odoslaná</span>
                 )}
               </td>
-              <td className="p-1.5">
+              <td className="p-1">
                 <div className="relative" ref={showActions === invoice.id ? actionsRef : null}>
                   <button
                     onClick={() => toggleActions(invoice.id)}

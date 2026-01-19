@@ -1,46 +1,34 @@
 // src/components/CompanyBox.js
-import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-  IconButton,
-  Menu,
-  MenuItem,
-} from '@mui/material';
+import React, { useEffect, useState, useRef } from 'react';
 
-const CompanyBox = ({ company, invoices, expenses, fromDate, toDate, onEdit, onDelete }) => {
+const CompanyBox = ({ company, invoices, expenses, monthlyInvoices, fromDate, toDate, onEdit, onDelete }) => {
   const [invoiceStatusTotals, setInvoiceStatusTotals] = useState({});
   const [expenseTypeTotals, setExpenseTypeTotals] = useState({});
+  const [monthlyInvoiceStats, setMonthlyInvoiceStats] = useState({ total: 0, count: 0 });
   const [profit, setProfit] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMenu]);
 
   // Pomocná funkcia na formátovanie čísla na dve desatinné miesta
   const formatNumber = (num) => (parseFloat(num) || 0).toFixed(2);
 
-  // Stav pre menu (3 bodky)
-  const [anchorEl, setAnchorEl] = useState(null);
-  const menuOpen = Boolean(anchorEl);
-
-  const handleMenuClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleEdit = () => {
-    handleMenuClose();
-    if (onEdit) onEdit(company.id);
-  };
-
-  const handleDelete = () => {
-    handleMenuClose();
-    if (onDelete) onDelete(company.id);
-  };
   useEffect(() => {
     // Prepočet total_price pre každú faktúru (ak obsahuje pole "services")
     const computedInvoices = invoices.map((invoice) => {
@@ -101,140 +89,138 @@ const CompanyBox = ({ company, invoices, expenses, fromDate, toDate, onEdit, onD
       return acc;
     }, {});
   
+    // Výpočet súčtu a počtu monthly invoices
+    const monthlyTotal = monthlyInvoices.reduce((acc, mi) => {
+      const totalPrice = (mi.services_planned || []).reduce((sum, service) => {
+        return sum + (parseFloat(service.price) || 0) * (parseInt(service.quantity, 10) || 0);
+      }, 0);
+      return acc + totalPrice;
+    }, 0);
+    
+    const monthlyCount = monthlyInvoices.length;
+    setMonthlyInvoiceStats({ total: monthlyTotal, count: monthlyCount });
+  
     const paidInvoiceTotal = invoiceTotals.paid || 0;
     const expenseTotal = expenseTotals.total || 0;
     setProfit(paidInvoiceTotal - expenseTotal);
     setInvoiceStatusTotals(invoiceTotals);
     setExpenseTypeTotals(expenseTotals);
-  }, [invoices, expenses, fromDate, toDate]);
+  }, [invoices, expenses, monthlyInvoices, fromDate, toDate]);
+
+  const handleEdit = () => {
+    setShowMenu(false);
+    if (onEdit) onEdit(company.id);
+  };
+
+  const handleDelete = () => {
+    setShowMenu(false);
+    if (onDelete) onDelete(company.id);
+  };
 
   return (
-    <Box
-      sx={{
-        border: '1px solid #ddd',
-        borderRadius: '8px',
-        p: 2,
-        boxShadow: 2,
-        bgcolor: 'white',
-        mb: 2,
-        position: 'relative', // pre absolútne pozicovanie menu
-      }}
-    >
-      {/* Ikonka s 3 bodkami (vertikálny ellipsis) */}
-      <IconButton
-        aria-label="more"
-        onClick={handleMenuClick}
-        sx={{ position: 'absolute', top: 8, right: 8 }}
-      >
-        <Typography variant="h6" component="span" sx={{ lineHeight: 1 }}>
-          ⋮
-        </Typography>
-      </IconButton>
-      <Menu
-        anchorEl={anchorEl}
-        open={menuOpen}
-        onClose={handleMenuClose}
-        anchorOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-      >
-        <MenuItem onClick={handleEdit}>Upraviť</MenuItem>
-        <MenuItem onClick={handleDelete}>Vymazať</MenuItem>
-      </Menu>
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow duration-300 relative">
+      {/* Menu button */}
+      <div className="absolute top-4 right-4" ref={menuRef}>
+        <button
+          onClick={() => setShowMenu(!showMenu)}
+          className="text-gray-500 hover:text-gray-700 focus:outline-none"
+        >
+          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+          </svg>
+        </button>
+        {showMenu && (
+          <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+            <button
+              onClick={handleEdit}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              Upraviť
+            </button>
+            <button
+              onClick={handleDelete}
+              className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              Vymazať
+            </button>
+          </div>
+        )}
+      </div>
 
-      {/* Názov firmy */}
-      <Typography variant="h6" align="center" gutterBottom>
+      {/* Company Name */}
+      <h3 className="text-xl font-bold text-gray-800 mb-6 text-center border-b pb-3">
         {company.company_name}
-      </Typography>
+      </h3>
 
-      {/* Sekcia: Faktúry podľa stavu */}
-      <Typography variant="subtitle1" sx={{ mt: 2 }}>
-        Faktúry podľa stavu:
-      </Typography>
-      <Table size="small">
-        <TableBody>
-          <TableRow>
-            <TableCell>Vytvorené:</TableCell>
-            <TableCell align="right">{formatNumber(invoiceStatusTotals.created)} €</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Odovzdané:</TableCell>
-            <TableCell align="right">{formatNumber(invoiceStatusTotals.sent)} €</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Vypršané:</TableCell>
-            <TableCell align="right">{formatNumber(invoiceStatusTotals.expired)} €</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Zaplatené:</TableCell>
-            <TableCell align="right">{formatNumber(invoiceStatusTotals.paid)} €</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>
-              <strong>Celkovo:</strong>
-            </TableCell>
-            <TableCell align="right">
-              <strong>{formatNumber(invoiceStatusTotals.total)} €</strong>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+      {/* Monthly Invoices Section */}
+      <div className="mb-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+        <h4 className="text-sm font-semibold text-blue-800 mb-2">Mesačné faktúry</h4>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600 text-sm">Počet:</span>
+          <span className="text-blue-700 font-bold">{monthlyInvoiceStats.count}</span>
+        </div>
+        <div className="flex justify-between items-center mt-1">
+          <span className="text-gray-600 text-sm">Súčet:</span>
+          <span className="text-blue-700 font-bold text-lg">{formatNumber(monthlyInvoiceStats.total)} €</span>
+        </div>
+      </div>
 
-      {/* Sekcia: Výdavky podľa typu */}
-      <Typography variant="subtitle1" sx={{ mt: 2 }}>
-        Výdavky podľa typu:
-      </Typography>
-      <Table size="small">
-        <TableBody>
-          <TableRow>
-            <TableCell>Mesačné:</TableCell>
-            <TableCell align="right">{formatNumber(expenseTypeTotals.mesacna)} €</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Jednorazové:</TableCell>
-            <TableCell align="right">{formatNumber(expenseTypeTotals.jednorazova)} €</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>
-              <strong>Total:</strong>
-            </TableCell>
-            <TableCell align="right">
-              <strong>{formatNumber(expenseTypeTotals.total)} €</strong>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+      {/* Invoices Section */}
+      <div className="mb-4">
+        <h4 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">Faktúry podľa stavu</h4>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Vytvorené:</span>
+            <span className="font-medium">{formatNumber(invoiceStatusTotals.created)} €</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Odovzdané:</span>
+            <span className="font-medium">{formatNumber(invoiceStatusTotals.sent)} €</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Vypršané:</span>
+            <span className="font-medium text-orange-600">{formatNumber(invoiceStatusTotals.expired)} €</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Zaplatené:</span>
+            <span className="font-medium text-green-600">{formatNumber(invoiceStatusTotals.paid)} €</span>
+          </div>
+          <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+            <span className="font-semibold text-gray-700">Celkom:</span>
+            <span className="font-bold text-gray-800">{formatNumber(invoiceStatusTotals.total)} €</span>
+          </div>
+        </div>
+      </div>
 
-      {/* Sekcia: Kombinácia (zaplatené faktúry vs. výdavky) */}
-      <Typography variant="subtitle1" sx={{ mt: 2 }}>
-        Kombinácia (Zaplatené faktúry vs. Výdavky):
-      </Typography>
-      <Table size="small">
-        <TableBody>
-          <TableRow>
-            <TableCell>Zaplatené faktúry:</TableCell>
-            <TableCell align="right">{formatNumber(invoiceStatusTotals.paid)} €</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Výdavky:</TableCell>
-            <TableCell align="right">{formatNumber(expenseTypeTotals.total)} €</TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+      {/* Expenses Section */}
+      <div className="mb-4">
+        <h4 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">Výdavky podľa typu</h4>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Mesačné:</span>
+            <span className="font-medium">{formatNumber(expenseTypeTotals.mesacna)} €</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Jednorazové:</span>
+            <span className="font-medium">{formatNumber(expenseTypeTotals.jednorazova)} €</span>
+          </div>
+          <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+            <span className="font-semibold text-gray-700">Celkom:</span>
+            <span className="font-bold text-gray-800">{formatNumber(expenseTypeTotals.total)} €</span>
+          </div>
+        </div>
+      </div>
 
-      {/* Sekcia: Zisk */}
-      <Typography variant="subtitle1" sx={{ mt: 2 }}>
-        Zisk:
-      </Typography>
-      <Typography variant="h6" align="center" sx={{ color: profit >= 0 ? 'green' : 'red' }}>
-        {profit.toFixed(2)} €
-      </Typography>
-    </Box>
+      {/* Profit Section */}
+      <div className="mt-6 pt-4 border-t-2 border-gray-300">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-semibold text-gray-700">Zisk:</span>
+          <span className={`text-2xl font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {formatNumber(profit)} €
+          </span>
+        </div>
+      </div>
+    </div>
   );
 };
 

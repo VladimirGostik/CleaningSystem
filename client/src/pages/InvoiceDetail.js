@@ -224,17 +224,26 @@ const InvoiceDetail = () => {
   return (
     <AdminLayout>
       <div className="p-6">
-        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-2xl font-bold text-green-600">Upraviť faktúru</h2>
-            <button
-              type="button"
-              className="bg-gray-300 text-black py-2 px-4 rounded-md hover:bg-gray-400 transition duration-300"
-              onClick={handleBack}
-            >
-              Späť na zoznam faktúr
-            </button>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2">
+            <img
+              src="/images/checklist.png"
+              alt="checklist"
+              className="w-6 h-6 rounded-full"
+            />
+            <h1 className="text-gray-600 text-2xl font-bold">Upraviť faktúru</h1>
           </div>
+          <button
+            type="button"
+            className="bg-gray-300 text-black py-2 px-4 rounded-md hover:bg-gray-400 transition duration-300"
+            onClick={handleBack}
+          >
+            Späť na zoznam faktúr
+          </button>
+        </div>
+
+        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl mx-auto">
           <form onSubmit={handleSubmit}>
             {/* Top Inputs */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">

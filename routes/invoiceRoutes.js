@@ -36,5 +36,8 @@ router.delete('/:id', invoiceController.deleteInvoice);
 
 // Získanie všetkých faktúr
 router.get('/', invoiceController.getAllInvoices);
+
+// Získanie štatistík faktúr
+router.get('/statistics', invoiceController.getInvoiceStatistics);
  
 module.exports = router;

@@ -629,3 +629,63 @@ exports.markInvoiceAsSent = async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+// Získanie štatistík faktúr pre dashboard
+exports.getInvoiceStatistics = async (req, res) => {
+  try {
+    const { fromDate, toDate } = req.query;
+    
+    // Build where clause for date filtering
+    const whereClause = {};
+    if (fromDate && toDate) {
+      whereClause.issue_date = {
+        [Op.between]: [new Date(fromDate), new Date(toDate)]
+      };
+    }
+
+    // Get all invoices with services for the date range
+    const invoices = await Invoice.findAll({
+      where: whereClause,
+      include: [
+        { 
+          model: Service, 
+          as: 'services',
+          attributes: ['id', 'price', 'quantity'],
+        }
+      ],
+    });
+
+    // Calculate statistics
+    let totalRevenue = 0; // Obrat (súčet zaplatených faktúr)
+    let totalInvoicesCount = invoices.length; // Počet vystavených faktúr
+    let unpaidInvoicesCount = 0; // Počet neuhradených faktúr
+
+    invoices.forEach(invoice => {
+      // Calculate total price for each invoice
+      const invoiceTotal = (invoice.services || []).reduce((acc, service) => {
+        const price = parseFloat(service.price) || 0;
+        const quantity = parseInt(service.quantity, 10) || 0;
+        return acc + price * quantity;
+      }, 0);
+
+      // Add to revenue if paid
+      if (invoice.status === 'paid') {
+        totalRevenue += invoiceTotal;
+      }
+
+      // Count unpaid invoices (not paid status)
+      if (invoice.status !== 'paid') {
+        unpaidInvoicesCount++;
+      }
+    });
+
+    res.status(200).json({
+      totalRevenue: totalRevenue.toFixed(2),
+      totalInvoicesCount,
+      unpaidInvoicesCount,
+    });
+  } catch (error) {
+    console.error('Error fetching invoice statistics:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
