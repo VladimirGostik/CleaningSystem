@@ -22,6 +22,8 @@ router.put('/bulk-update-status', invoiceController.bulkUpdateStatus);
 router.put('/update-from-transactions', invoiceController.updateInvoicesFromTransactions);
 
 router.post('/bulk-delete', invoiceController.bulkDeleteInvoices);
+
+router.put('/bulk-update-dates', invoiceController.bulkUpdateInvoiceDates);
 // Získanie faktúry podľa ID
 router.get('/:id', invoiceController.getInvoiceById);
 

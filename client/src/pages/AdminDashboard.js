@@ -18,6 +18,7 @@ const CompanyDashboard = () => {
     totalRevenue: '0.00',
     totalInvoicesCount: 0,
     unpaidInvoicesCount: 0,
+    monthlyRevenue: '0.00',
   });
   // Predvolená časová perióda – uprav si podľa potreby
   const [fromDate, setFromDate] = useState('2025-01-01');
@@ -236,7 +237,7 @@ const CompanyDashboard = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -274,6 +275,20 @@ const CompanyDashboard = () => {
               <div className="bg-white bg-opacity-20 rounded-full p-4">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm font-medium mb-1">Mesačný obrat</p>
+                <p className="text-3xl font-bold">{parseFloat(statistics.monthlyRevenue || '0.00').toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p>
+              </div>
+              <div className="bg-white bg-opacity-20 rounded-full p-4">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
             </div>

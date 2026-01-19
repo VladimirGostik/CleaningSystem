@@ -203,7 +203,7 @@ const InvoiceTableExtended = ({
                 {invoice.invoice_name || 'N/A'}
               </td>
               <td className="px-1.5 py-1 text-sm" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
-                <span className="truncate block max-w-[150px]" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
+                <span className="truncate block max-w-[250px]" title={invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}>
                   {invoice.residential_company_name || residentialCompaniesMap[invoice.id_residential_company] || 'N/A'}
                 </span>
               </td>

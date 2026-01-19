@@ -189,3 +189,17 @@ export const InvoicesBulkDelete = async (invoiceIds) => {
     throw error;
   }
 };
+
+// 📅 Hromadná úprava dátumov faktúr
+export const InvoicesBulkUpdateDates = async (invoiceIds, updateData) => {
+  try {
+    const response = await axiosInstance.put('/invoices/bulk-update-dates', {
+      invoiceIds,
+      ...updateData,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating invoice dates:', error);
+    throw error;
+  }
+};

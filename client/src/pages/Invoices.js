@@ -12,6 +12,7 @@ import AddMonthlyInvoicesModal from '../modals/AddMonthlyInvoicesModal';
 import AddMonthlyInvoicesForCompanyModal from '../modals/AddMonthlyInvoicesForCompanyModal';
 import InvoiceFilter from '../components/InvoiceFilter'; // Import the filter component
 import MarkAsPaidModal from '../modals/MarkAsPaidModal'; // Import the MarkAsPaidModal
+import BulkEditInvoiceDatesModal from '../modals/BulkEditInvoiceDatesModal'; // Import BulkEditInvoiceDatesModal
 import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Import BulkInvoiceDocument
 import { pdf } from '@react-pdf/renderer'; // Import the pdf function
 import * as XLSX from 'xlsx'; // Import xlsx for Excel export
@@ -28,6 +29,7 @@ import {
   InvoicesBulkMarkAsSent, 
   InvoicesBulkMarkAsPaid, 
   InvoicesBulkDelete,
+  InvoicesBulkUpdateDates,
   sendTransactionsToBackend
 } from '../services/invoices';
 
@@ -41,6 +43,7 @@ const Invoices = () => {
   const [showAddMonthlyInvoicesModal, setShowAddMonthlyInvoicesModal] = useState(false); // Add Monthly Invoices Modal
   const [showAddMonthlyInvoicesForCompanyModal, setShowAddMonthlyInvoicesForCompanyModal] = useState(false); // Add Monthly Invoices for Company Modal
   const [showBulkMarkAsPaidModal, setShowBulkMarkAsPaidModal] = useState(false); // State to control bulk MarkAsPaidModal
+  const [showBulkEditDatesModal, setShowBulkEditDatesModal] = useState(false); // State to control bulk EditDatesModal
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false); // Stav pre import
 
@@ -353,6 +356,27 @@ const Invoices = () => {
     } catch (error) {
       console.error('Error deleting invoices:', error);
       toast.error('Chyba pri vymazávaní faktúr');
+    }
+  };
+
+  const handleBulkEditDates = () => {
+    if (selectedInvoiceIds.length === 0) {
+      toast.warn('Žiadne faktúry na úpravu');
+      return;
+    }
+    setShowBulkEditDatesModal(true);
+  };
+
+  const handleBulkEditDatesSubmit = async (updateData) => {
+    try {
+      await InvoicesBulkUpdateDates(selectedInvoiceIds, updateData);
+      fetchInvoices();
+      toast.success('Dátumy faktúr úspešne aktualizované');
+      setShowBulkEditDatesModal(false);
+      setShowBulkActions(false); // Close bulk actions after successful operation
+    } catch (error) {
+      console.error('Error updating invoice dates:', error);
+      toast.error('Chyba pri aktualizácii dátumov faktúr');
     }
   };
 
@@ -935,7 +959,7 @@ const Invoices = () => {
             Akcie ({selectedInvoiceIds.length})
           </button>
           {showBulkActions && (
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex gap-2 flex-wrap">
               <button
                 className="bg-blue-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-blue-700 transition duration-300"
                 onClick={handleBulkMarkAsSent}
@@ -947,6 +971,12 @@ const Invoices = () => {
                 onClick={handleBulkMarkAsPaid}
               >
                 Označiť ako zaplatené
+              </button>
+              <button
+                className="bg-teal-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-teal-700 transition duration-300"
+                onClick={handleBulkEditDates}
+              >
+                Upraviť dátumy
               </button>
               <button
                 className="bg-purple-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-purple-700 transition duration-300"
@@ -1092,6 +1122,9 @@ const Invoices = () => {
       )}
       {showBulkMarkAsPaidModal && (
         <MarkAsPaidModal closeModal={() => setShowBulkMarkAsPaidModal(false)} onSubmit={handleBulkMarkAsPaidSubmit} />
+      )}
+      {showBulkEditDatesModal && (
+        <BulkEditInvoiceDatesModal closeModal={() => setShowBulkEditDatesModal(false)} onSubmit={handleBulkEditDatesSubmit} />
       )}
       {isGeneratingPDF && (
         <div className="flex justify-center items-center">

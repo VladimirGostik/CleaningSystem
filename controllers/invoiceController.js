@@ -567,6 +567,42 @@ exports.bulkDeleteInvoices = async (req, res) => {
   }
 };
 
+// Bulk update dátumov faktúr (issue_date, due_date, billing_month)
+exports.bulkUpdateInvoiceDates = async (req, res) => {
+  try {
+    const { invoiceIds, issue_date, due_date, billing_month } = req.body;
+
+    if (!invoiceIds || !Array.isArray(invoiceIds) || invoiceIds.length === 0) {
+      return res.status(400).json({ error: 'invoiceIds sú povinné a musia byť pole.' });
+    }
+
+    // Validácia - aspoň jedno pole musí byť vyplnené
+    if (!issue_date && !due_date && !billing_month) {
+      return res.status(400).json({ error: 'Aspoň jeden dátum alebo fakturačný mesiac musí byť zadaný.' });
+    }
+
+    // Príprava dát na aktualizáciu
+    const updateData = {};
+    if (issue_date) updateData.issue_date = issue_date;
+    if (due_date) updateData.due_date = due_date;
+    if (billing_month) updateData.billing_month = billing_month;
+
+    // Aktualizácia faktúr
+    await Invoice.update(updateData, {
+      where: {
+        id: {
+          [Op.in]: invoiceIds,
+        },
+      },
+    });
+
+    res.status(200).json({ message: 'Dátumy faktúr úspešne aktualizované.' });
+  } catch (error) {
+    console.error('Error in bulkUpdateInvoiceDates:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 // Vymazanie faktúry
 exports.deleteInvoice = async (req, res) => {
   try {
@@ -661,7 +697,7 @@ exports.getInvoiceStatistics = async (req, res) => {
     }
 
     // Get all invoices with services for the date range
-    // Use separate: true to avoid N+1 query problem
+    // Don't use separate: true to avoid issues
     const invoices = await Invoice.findAll({
       where: whereClause,
       include: [
@@ -670,12 +706,11 @@ exports.getInvoiceStatistics = async (req, res) => {
           as: 'services',
           attributes: ['id', 'price', 'quantity'],
           required: false, // LEFT JOIN - include invoices even without services
-          separate: true, // Use separate query to avoid N+1
         }
       ],
     });
 
-    // Calculate statistics
+    // Calculate statistics for one-time invoices
     let totalRevenue = 0; // Obrat (súčet zaplatených faktúr)
     let totalInvoicesCount = invoices.length; // Počet vystavených faktúr
     let unpaidInvoicesCount = 0; // Počet neuhradených faktúr
@@ -710,10 +745,47 @@ exports.getInvoiceStatistics = async (req, res) => {
       }
     }
 
+    // Calculate monthly revenue (sum of all monthly invoices)
+    let monthlyRevenue = 0;
+    try {
+      const monthlyInvoices = await MonthlyInvoice.findAll({
+        include: [
+          {
+            model: ServicePlanned,
+            as: 'services_planned',
+            attributes: ['id', 'price', 'quantity'],
+            required: false,
+          }
+        ],
+      });
+
+      for (const monthlyInvoice of monthlyInvoices) {
+        try {
+          const services = monthlyInvoice.services_planned || [];
+          if (services.length > 0) {
+            const monthlyTotal = services.reduce((acc, service) => {
+              if (!service) return acc;
+              const price = parseFloat(service.price) || 0;
+              const quantity = parseInt(service.quantity, 10) || 0;
+              return acc + (price * quantity);
+            }, 0);
+            monthlyRevenue += monthlyTotal;
+          }
+        } catch (monthlyError) {
+          console.error(`Error processing monthly invoice ${monthlyInvoice.id}:`, monthlyError);
+          // Continue with next monthly invoice
+        }
+      }
+    } catch (monthlyError) {
+      console.error('Error fetching monthly invoices:', monthlyError);
+      // Continue without monthly revenue if there's an error
+    }
+
     res.status(200).json({
       totalRevenue: totalRevenue.toFixed(2),
       totalInvoicesCount,
       unpaidInvoicesCount,
+      monthlyRevenue: monthlyRevenue.toFixed(2),
     });
   } catch (error) {
     console.error('Error fetching invoice statistics:', error);
