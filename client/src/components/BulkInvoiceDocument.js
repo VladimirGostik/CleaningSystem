@@ -12,8 +12,17 @@ const styles = StyleSheet.create({
 
 const BulkInvoiceDocument = ({ invoices }) => (
   <Document>
-    {invoices.map(invoice => (
-        <Page size="A4" style={{ flexDirection: 'column', padding: 0, display: 'flex' }}>
+    {invoices.map((invoice, index) => (
+        <Page 
+          key={index}
+          size="A4" 
+          style={{ 
+            flexDirection: 'column', 
+            padding: 0, 
+            display: 'flex',
+            position: 'relative',
+          }}
+        >
         <InvoiceExtendedPDFBulk invoice={invoice} />
       </Page>
     ))}

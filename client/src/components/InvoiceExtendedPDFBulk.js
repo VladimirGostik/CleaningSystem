@@ -34,9 +34,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingBottom: 40,
     lineHeight: 1.5,
-    bottom: 0,
-    // Budeš to vkladať do <Page> z vonku,
-    // tak tu len flexDirection: 'column', ...
+    flexDirection: 'column',
+    minHeight: '100%',
+    display: 'flex',
   },
   header: {
     flexDirection: 'row',
@@ -183,6 +183,15 @@ const styles = StyleSheet.create({
     marginTop: 'auto', // Posunie podpisy na spodok
     justifyContent: 'flex-end',
     paddingBottom: 20,
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    left: 40,
+    right: 40,
+  },
+  contentWrapper: {
+    flexGrow: 1,
+    marginBottom: 200, // Priestor pre podpisy a footer
   },
 });
 
@@ -192,7 +201,6 @@ const formatDescription = (desc, billing_month, issue_date) => {
     .replace(/{mesiac\/rok}/g, () => {
       const invoiceDateObj = new Date(issue_date);
       let invoiceYear = invoiceDateObj.getFullYear();
-      const monthNum = parseInt(billing_month, 10);
       return `${billing_month}/${invoiceYear}`;
     })
     .replace(/{mesiac}/g, billing_month);
@@ -259,118 +267,124 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
 
   return (
     <View style={styles.container}>
-      {/* Hlavička */}
-      <View style={styles.header}>
-        <Text style={styles.invoiceNumber}>Faktúra č: {invoice_number}</Text>
-      </View>
-
-      {/* Detaily Faktúry v jednom riadku */}
-      <View style={styles.invoiceDetails}>
-        <Text style={styles.invoiceDetailsText}>Fakturačný mesiac: {billing_month || 'N/A'}</Text>
-        <Text style={styles.invoiceDetailsText}>Dátum vystavenia: {formatDate(issue_date)}</Text>
-        <Text style={styles.invoiceDetailsText}>Dátum splatnosti: {formatDate(due_date)}</Text>
-      </View>
-
-      {/* Detaily Spoločností */}
-      <View style={styles.invoiceDetailsContainer}>
-        <View style={styles.detailsColumn}>
-          <Text style={styles.sectionTitle}>Dodávateľ</Text>
-          <Text style={styles.infoText}>{company_name || 'N/A'}</Text>
-          <Text style={styles.infoText}>{company_address || 'N/A'}</Text>
-          <Text style={styles.infoText}>
-            {city || 'N/A'}, {postal_code || 'N/A'}
-          </Text>
-          <Text style={styles.infoText}>IČO: {company_ico || 'N/A'}</Text>
-          <Text style={styles.infoText}>DIČ: {company_dic || 'N/A'}</Text>
+      {/* Hlavný obsah */}
+      <View style={styles.contentWrapper}>
+        {/* Hlavička */}
+        <View style={styles.header}>
+          <Text style={styles.invoiceNumber}>Faktúra č: {invoice_number}</Text>
         </View>
-        <View style={styles.detailsColumn}>
-          <Text style={styles.sectionTitle}>Odberateľ</Text>
-          {header1 && <Text style={styles.infoText}>{header1}</Text>}
-          {header2 && <Text style={styles.infoText}>{header2}</Text>}
-          {header3 && <Text style={styles.infoText}>{header3}</Text>}
-          {header4 && <Text style={styles.infoText}>{header4}</Text>}
-          {residential_company_name && (
-            <Text style={styles.infoText}>{residential_company_name}</Text>
-          )}
-          {residential_company_address && (
-            <Text style={styles.infoText}>{residential_company_address}</Text>
-          )}
-          {residential_city && residential_postal_code && (
-            <Text style={styles.infoText}>{residential_city}, {residential_postal_code}
+
+        {/* Detaily Faktúry v jednom riadku */}
+        <View style={styles.invoiceDetails}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.invoiceDetailsText}>Fakturačný mesiac: {billing_month || 'N/A'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.invoiceDetailsText}>Dátum vystavenia: {formatDate(issue_date)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.invoiceDetailsText}>Dátum splatnosti: {formatDate(due_date)}</Text>
+          </View>
+        </View>
+
+        {/* Detaily Spoločností */}
+        <View style={styles.invoiceDetailsContainer}>
+          <View style={styles.detailsColumn}>
+            <Text style={styles.sectionTitle}>Dodávateľ</Text>
+            <Text style={styles.infoText}>{company_name || 'N/A'}</Text>
+            <Text style={styles.infoText}>{company_address || 'N/A'}</Text>
+            <Text style={styles.infoText}>
+              {city || 'N/A'}, {postal_code || 'N/A'}
+            </Text>
+            <Text style={styles.infoText}>IČO: {company_ico || 'N/A'}</Text>
+            <Text style={styles.infoText}>DIČ: {company_dic || 'N/A'}</Text>
+          </View>
+          <View style={styles.detailsColumn}>
+            <Text style={styles.sectionTitle}>Odberateľ</Text>
+            {header1 && <Text style={styles.infoText}>{header1}</Text>}
+            {header2 && <Text style={styles.infoText}>{header2}</Text>}
+            {header3 && <Text style={styles.infoText}>{header3}</Text>}
+            {header4 && <Text style={styles.infoText}>{header4}</Text>}
+            {residential_company_name && (
+              <Text style={styles.infoText}>{residential_company_name}</Text>
+            )}
+            {residential_company_address && (
+              <Text style={styles.infoText}>{residential_company_address}</Text>
+            )}
+            {residential_city && residential_postal_code && (
+              <Text style={styles.infoText}>{residential_city}, {residential_postal_code}
+              </Text>
+            )}
+            {residential_company_ico && (
+              <Text style={styles.infoText}>IČO: {residential_company_ico}</Text>
+            )}
+            {residential_company_dic && (
+              <Text style={styles.infoText}>DIČ: {residential_company_dic}</Text>
+            )}
+            {residential_company_iban && (
+              <Text style={styles.infoText}>Iban: {residential_company_iban}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Platobné Informácie */}
+        <View style={styles.section}>
+          {company_iban && (
+            <Text style={styles.infoText}>
+              <Text style={styles.boldText}>IBAN:</Text> {company_iban}
             </Text>
           )}
-          {residential_company_ico && (
-            <Text style={styles.infoText}>IČO: {residential_company_ico}</Text>
-          )}
-          {residential_company_dic && (
-            <Text style={styles.infoText}>DIČ: {residential_company_dic}</Text>
-          )}
-          {residential_company_iban && (
-            <Text style={styles.infoText}>Iban: {residential_company_iban}</Text>
-          )}
-        </View>
-      </View>
-
-      {/* Platobné Informácie */}
-      <View style={styles.section}>
-        {company_iban && (
-          <Text style={styles.infoText}>
-            <Text style={styles.boldText}>IBAN:</Text> {company_iban}
-          </Text>
-        )}
-        {bank_connection && (
-          <Text style={styles.infoText}>
-            <Text style={styles.boldText}>Bankové spojenie:</Text> {bank_connection}
-          </Text>
-        )}
-        <Text style={styles.infoText}>
-          <Text style={styles.boldText}>Forma úhrady:</Text> Prevodom
-        </Text>
-      </View>
-
-      {formattedDescriptionAbove && (
-        <View style={styles.section2}>
-          <Text style={styles.infoText}>{formattedDescriptionAbove}</Text>
-        </View>
-      )}
-
-      {/* Tabuľka Služieb */}
-      <View style={styles.tableContainer}>
-        <View style={styles.tableHeader}>
-          <Text style={{ ...styles.tableColHeader, flex: 4 }}>Popis služby</Text>
-          <Text style={{ ...styles.tableColHeader, flex: 1 }}>Množstvo</Text>
-          <Text style={{ ...styles.tableColHeader, flex: 1 }}>Cena</Text>
-        </View>
-        {/* Riadok s description_services, ak je zadaný */}
-        {description_services && (
-          <View style={styles.tableRow}>
-            <Text style={{ ...styles.tableCol, width: '100%', textAlign: 'left' }}>
-              {description_services}
+          {bank_connection && (
+            <Text style={styles.infoText}>
+              <Text style={styles.boldText}>Bankové spojenie:</Text> {bank_connection}
             </Text>
+          )}
+          <Text style={styles.infoText}>
+            <Text style={styles.boldText}>Forma úhrady:</Text> Prevodom
+          </Text>
+        </View>
+
+        {formattedDescriptionAbove && (
+          <View style={styles.section2}>
+            <Text style={styles.infoText}>{formattedDescriptionAbove}</Text>
           </View>
         )}
-        {/* Samotné služby */}
-        {formattedServices.map((service, idx) => (
-          <View style={styles.tableRow} key={idx}>
-            <Text style={{ ...styles.tableCol, flex: 4 }}>{service.name || 'N/A'}</Text>
-            <Text style={{ ...styles.tableCol, flex: 1 }}>{service.quantity}</Text>
-            <Text style={{ ...styles.tableCol, flex: 1 }}>
-              {(service.price * service.quantity).toFixed(2)} €
-            </Text>
+
+        {/* Tabuľka Služieb */}
+        <View style={styles.tableContainer}>
+          <View style={styles.tableHeader}>
+            <Text style={{ ...styles.tableColHeader, flex: 4 }}>Popis služby</Text>
+            <Text style={{ ...styles.tableColHeader, flex: 1 }}>Množstvo</Text>
+            <Text style={{ ...styles.tableColHeader, flex: 1 }}>Cena</Text>
           </View>
-        ))}
+          {/* Riadok s description_services, ak je zadaný */}
+          {description_services && (
+            <View style={styles.tableRow}>
+              <Text style={{ ...styles.tableCol, width: '100%', textAlign: 'left' }}>
+                {description_services}
+              </Text>
+            </View>
+          )}
+          {/* Samotné služby */}
+          {formattedServices.map((service, idx) => (
+            <View style={styles.tableRow} key={idx}>
+              <Text style={{ ...styles.tableCol, flex: 4 }}>{service.name || 'N/A'}</Text>
+              <Text style={{ ...styles.tableCol, flex: 1 }}>{service.quantity}</Text>
+              <Text style={{ ...styles.tableCol, flex: 1 }}>
+                {(service.price * service.quantity).toFixed(2)} €
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Celková Cena */}
+        <View style={styles.totalSection}>
+          <Text style={styles.totalLabel}>Celková suma:</Text>
+          <Text style={styles.totalValue}>{totalPrice.toFixed(2)} €</Text>
+        </View>
       </View>
 
-      {/* Celková Cena */}
-      <View style={styles.totalSection}>
-        <Text style={styles.totalLabel}>Celková suma:</Text>
-        <Text style={styles.totalValue}>{totalPrice.toFixed(2)} €</Text>
-      </View>
-
-      {/* Priestor medzi tabuľkou a podpisami/spodkom */}
-      <View style={{ flexGrow: 1 }} />
-
-      {/* Podpisy a Pätička */}
+      {/* Podpisy a Pätička - vždy na spodku */}
       <View style={styles.signatureSectionFull}>
         {/* Podpisy */}
         <View style={styles.signatureSection}>
