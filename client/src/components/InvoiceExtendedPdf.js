@@ -112,16 +112,16 @@ const styles = StyleSheet.create({
         border: '2 solid #2f5597',
     },
     qrCodeContainer: {
-        padding: 15,
-        borderRadius: 10,
-        border: '2 solid #2f5597',
+        padding: 5,
+        borderRadius: 5,
+        border: '1 solid #2f5597',
         alignItems: 'center',
         justifyContent: 'center',
-        minWidth: 150,
+        minWidth: 105,
     },
     qrCode: {
-        width: 120,
-        height: 120,
+        width: 95,
+        height: 95,
     },
     invoiceDetailsContainer: {
         flexDirection: 'row',
@@ -367,6 +367,14 @@ const InvoiceExtendedPdf = ({ invoice }) => {
 
                 {/* Platobné Informácie */}
                 <View style={styles.paymentSection}>
+                    {qrCodeUrl && (
+                        <View style={styles.qrCodeContainer}>
+                            <Image src={qrCodeUrl} style={styles.qrCode} />
+                            <Text style={{ ...styles.infoText, marginTop: 5, fontSize: 8, textAlign: 'center', fontWeight: 'bold' }}>
+                                QR kód pre platbu
+                            </Text>
+                        </View>
+                    )}
                     <View style={styles.paymentInfo}>
                         {company_iban && (
                             <Text style={styles.infoText}>
@@ -385,14 +393,6 @@ const InvoiceExtendedPdf = ({ invoice }) => {
                             <Text style={styles.boldText}>Forma úhrady:</Text> Prevodom
                         </Text>
                     </View>
-                    {qrCodeUrl && (
-                        <View style={styles.qrCodeContainer}>
-                            <Image src={qrCodeUrl} style={styles.qrCode} />
-                            <Text style={{ ...styles.infoText, marginTop: 8, fontSize: 9, textAlign: 'center', fontWeight: 'bold' }}>
-                                QR kód pre platbu
-                            </Text>
-                        </View>
-                    )}
                 </View>
 
                 {formattedDescriptionAbove && (
