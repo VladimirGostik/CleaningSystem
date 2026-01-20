@@ -26,6 +26,7 @@ const InvoiceTableExtended = ({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [invoiceWithQR, setInvoiceWithQR] = useState(null);
   const allSelected = invoices.length > 0 && invoices.every(invoice => selectedInvoiceIds.includes(invoice.id));
   const [residentialCompaniesMap, setResidentialCompaniesMap] = useState({}); // Map of residential companies by ID
   const actionsRef = useRef(null);
@@ -121,8 +122,55 @@ const InvoiceTableExtended = ({
     setShowActions((prev) => (prev === invoiceId ? null : invoiceId));
   };
 
-  const handlePdfView = (invoice) => {
+  const handlePdfView = async (invoice) => {
     setSelectedInvoice(invoice);
+    
+    // Generujeme QR kód pre faktúru pomocou Pay by Square
+    let qrCode = null;
+    if (invoice.company_iban) {
+      try {
+        const cleanIban = invoice.company_iban.replace(/\s+/g, '');
+        const services = invoice.services || [];
+        const totalPrice = services.reduce((acc, service) => {
+          const price = parseFloat(service.price) || 0;
+          const quantity = parseInt(service.quantity, 10) || 0;
+          return acc + (price * quantity);
+        }, 0);
+        const amount = parseFloat(totalPrice.toFixed(2));
+        const variableSymbol = (invoice.invoice_number || '').replace(/\s+/g, '');
+        const recipientName = (invoice.company_name || '').substring(0, 70); // Názov príjemcu = company_name
+        const message = (invoice.invoice_name || '').substring(0, 140); // Informácia pre príjemcu = invoice_name
+        
+        // Pay by Square formát - slovenský štandard
+        const qrString = encode({
+          payments: [
+            {
+              type: PaymentOptions.PaymentOrder,
+              amount: amount,
+              variableSymbol: variableSymbol || undefined,
+              currencyCode: CurrencyCode.EUR,
+              bankAccounts: [
+                { iban: cleanIban }
+              ],
+              note: message || undefined, // Informácia pre príjemcu = invoice_name
+              payeeName: recipientName || undefined, // Názov príjemcu = company_name
+            },
+          ],
+        });
+        
+        qrCode = await QRCode.toDataURL(qrString, {
+          errorCorrectionLevel: 'H',
+          type: 'image/png',
+          quality: 0.92,
+          margin: 1,
+          width: 200
+        });
+      } catch (qrError) {
+        console.error('Error generating Pay by Square QR code:', qrError);
+      }
+    }
+    
+    setInvoiceWithQR({ ...invoice, qrCode });
     setShowPdfModal(true);
   };
 
@@ -343,8 +391,8 @@ const InvoiceTableExtended = ({
                           }, 0);
                           const amount = parseFloat(totalPrice.toFixed(2));
                           const variableSymbol = (selectedInvoice.invoice_number || '').replace(/\s+/g, '');
-                          const recipientName = (selectedInvoice.company_name || '').substring(0, 70);
-                          const message = (selectedInvoice.invoice_name || '').substring(0, 140);
+                          const recipientName = (selectedInvoice.company_name || '').substring(0, 70); // Názov príjemcu = company_name
+                          const message = (selectedInvoice.invoice_name || '').substring(0, 140); // Informácia pre príjemcu = invoice_name
                           
                           // Pay by Square formát - slovenský štandard
                           const qrString = encode({
@@ -357,8 +405,8 @@ const InvoiceTableExtended = ({
                                 bankAccounts: [
                                   { iban: cleanIban }
                                 ],
-                                note: message || undefined,
-                                payeeName: recipientName || undefined,
+                                note: message || undefined, // Informácia pre príjemcu = invoice_name
+                                payeeName: recipientName || undefined, // Názov príjemcu = company_name
                               },
                             ],
                           });
@@ -427,7 +475,7 @@ const InvoiceTableExtended = ({
               </div>
             </div>
             <PDFViewer style={{ width: '100%', height: '80vh' }}>
-              <InvoiceExtendedPdf invoice={selectedInvoice} />
+              <InvoiceExtendedPdf invoice={invoiceWithQR || selectedInvoice} />
             </PDFViewer>
           </div>
         </div>

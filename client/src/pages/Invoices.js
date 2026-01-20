@@ -397,8 +397,8 @@ const Invoices = () => {
       }, 0);
       const amount = parseFloat(totalPrice.toFixed(2));
       const variableSymbol = (invoice.invoice_number || '').replace(/\s+/g, '');
-      const recipientName = (invoice.company_name || '').substring(0, 70);
-      const message = (invoice.invoice_name || '').substring(0, 140);
+      const recipientName = (invoice.company_name || '').substring(0, 70); // Názov príjemcu = company_name
+      const message = (invoice.invoice_name || '').substring(0, 140); // Informácia pre príjemcu = invoice_name
       
       // Pay by Square formát - slovenský štandard
       const qrString = encode({
@@ -411,8 +411,8 @@ const Invoices = () => {
             bankAccounts: [
               { iban: cleanIban }
             ],
-            note: message || undefined,
-            payeeName: recipientName || undefined,
+            note: message || undefined, // Informácia pre príjemcu = invoice_name
+            payeeName: recipientName || undefined, // Názov príjemcu = company_name
           },
         ],
       });
