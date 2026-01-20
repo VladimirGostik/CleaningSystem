@@ -152,8 +152,10 @@ const InvoiceTableExtended = ({
               bankAccounts: [
                 { iban: cleanIban }
               ],
-              note: message || undefined, // Informácia pre príjemcu = invoice_name
-              payeeName: recipientName || undefined, // Názov príjemcu = company_name
+              paymentNote: message || undefined, // Informácia pre príjemcu = invoice_name (max 140 znakov)
+              beneficiary: recipientName ? {
+                name: recipientName // Názov príjemcu = company_name (max 70 znakov)
+              } : undefined,
             },
           ],
         });
@@ -405,8 +407,10 @@ const InvoiceTableExtended = ({
                                 bankAccounts: [
                                   { iban: cleanIban }
                                 ],
-                                note: message || undefined, // Informácia pre príjemcu = invoice_name
-                                payeeName: recipientName || undefined, // Názov príjemcu = company_name
+                                paymentNote: message || undefined, // Informácia pre príjemcu = invoice_name (max 140 znakov)
+                                beneficiary: recipientName ? {
+                                  name: recipientName // Názov príjemcu = company_name (max 70 znakov)
+                                } : undefined,
                               },
                             ],
                           });
