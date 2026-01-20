@@ -6,6 +6,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import MarkAsPaidModal from '../modals/MarkAsPaidModal';
 import { PDFViewer, pdf } from '@react-pdf/renderer';
 import InvoiceExtendedPdf from './InvoiceExtendedPdf';
+import QRCode from 'qrcode';
+import { encode, PaymentOptions, CurrencyCode } from 'bysquare'; // Import BySquare library
 import { getResidentialCompanies } from '../services/companyService';
 
 const InvoiceTableExtended = ({
@@ -328,7 +330,53 @@ const InvoiceTableExtended = ({
                   className="bg-green-600 text-white py-1 px-3 rounded-md hover:bg-green-700 transition duration-300"
                   onClick={async () => {
                     try {
-                      const blob = await pdf(<InvoiceExtendedPdf invoice={selectedInvoice} />).toBlob();
+                      // Generujeme QR kód pre faktúru pomocou Pay by Square
+                      let qrCode = null;
+                      if (selectedInvoice.company_iban) {
+                        try {
+                          const cleanIban = selectedInvoice.company_iban.replace(/\s+/g, '');
+                          const services = selectedInvoice.services || [];
+                          const totalPrice = services.reduce((acc, service) => {
+                            const price = parseFloat(service.price) || 0;
+                            const quantity = parseInt(service.quantity, 10) || 0;
+                            return acc + (price * quantity);
+                          }, 0);
+                          const amount = parseFloat(totalPrice.toFixed(2));
+                          const variableSymbol = (selectedInvoice.invoice_number || '').replace(/\s+/g, '');
+                          const recipientName = (selectedInvoice.company_name || '').substring(0, 70);
+                          const message = (selectedInvoice.invoice_name || '').substring(0, 140);
+                          
+                          // Pay by Square formát - slovenský štandard
+                          const qrString = encode({
+                            payments: [
+                              {
+                                type: PaymentOptions.PaymentOrder,
+                                amount: amount,
+                                variableSymbol: variableSymbol || undefined,
+                                currencyCode: CurrencyCode.EUR,
+                                bankAccounts: [
+                                  { iban: cleanIban }
+                                ],
+                                note: message || undefined,
+                                payeeName: recipientName || undefined,
+                              },
+                            ],
+                          });
+                          
+                          qrCode = await QRCode.toDataURL(qrString, {
+                            errorCorrectionLevel: 'H',
+                            type: 'image/png',
+                            quality: 0.92,
+                            margin: 1,
+                            width: 200
+                          });
+                        } catch (qrError) {
+                          console.error('Error generating Pay by Square QR code:', qrError);
+                        }
+                      }
+                      
+                      const invoiceWithQR = { ...selectedInvoice, qrCode };
+                      const blob = await pdf(<InvoiceExtendedPdf invoice={invoiceWithQR} />).toBlob();
                       const url = window.URL.createObjectURL(blob);
                       const link = document.createElement('a');
                       link.href = url;
@@ -361,6 +409,7 @@ const InvoiceTableExtended = ({
                       document.body.appendChild(link);
                       link.click();
                       link.parentNode.removeChild(link);
+                      window.URL.revokeObjectURL(url);
                     } catch (error) {
                       console.error('Error downloading PDF:', error);
                     }

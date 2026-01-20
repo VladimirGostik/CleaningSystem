@@ -16,6 +16,8 @@ import BulkEditInvoiceDatesModal from '../modals/BulkEditInvoiceDatesModal'; // 
 import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Import BulkInvoiceDocument
 import { pdf } from '@react-pdf/renderer'; // Import the pdf function
 import * as XLSX from 'xlsx'; // Import xlsx for Excel export
+import QRCode from 'qrcode'; // Import QRCode library
+import { encode, PaymentOptions, CurrencyCode } from 'bysquare'; // Import BySquare library
 import { getResidentialCompanyById } from '../services/companyService';
 import { 
   getInvoices, 
@@ -380,6 +382,56 @@ const Invoices = () => {
     }
   };
 
+  // Funkcia na generovanie QR kódu pre faktúru pomocou Pay by Square
+  const generateQRCodeForInvoice = async (invoice) => {
+    if (!invoice.company_iban) return null;
+    
+    try {
+      // Odstránime medzery z IBAN
+      const cleanIban = invoice.company_iban.replace(/\s+/g, '');
+      const services = invoice.services || [];
+      const totalPrice = services.reduce((acc, service) => {
+        const price = parseFloat(service.price) || 0;
+        const quantity = parseInt(service.quantity, 10) || 0;
+        return acc + (price * quantity);
+      }, 0);
+      const amount = parseFloat(totalPrice.toFixed(2));
+      const variableSymbol = (invoice.invoice_number || '').replace(/\s+/g, '');
+      const recipientName = (invoice.company_name || '').substring(0, 70);
+      const message = (invoice.invoice_name || '').substring(0, 140);
+      
+      // Pay by Square formát - slovenský štandard
+      const qrString = encode({
+        payments: [
+          {
+            type: PaymentOptions.PaymentOrder,
+            amount: amount,
+            variableSymbol: variableSymbol || undefined,
+            currencyCode: CurrencyCode.EUR,
+            bankAccounts: [
+              { iban: cleanIban }
+            ],
+            note: message || undefined,
+            payeeName: recipientName || undefined,
+          },
+        ],
+      });
+      
+      // Generujeme QR kód ako base64 obrázok z Pay by Square stringu
+      const qrCodeDataUrl = await QRCode.toDataURL(qrString, {
+        errorCorrectionLevel: 'H',
+        type: 'image/png',
+        quality: 0.92,
+        margin: 1,
+        width: 200
+      });
+      return qrCodeDataUrl;
+    } catch (error) {
+      console.error('Error generating Pay by Square QR code:', error);
+      return null;
+    }
+  };
+
   const handleBulkDownload = async () => {
     if (selectedInvoiceIds.length === 0) {
       toast.warn('Žiadne faktúry na stiahnutie');
@@ -459,13 +511,21 @@ const Invoices = () => {
         const { companyName, invoices } = invoicesByCompany[companyId];
         const [month, year] = getMonthYear(invoices);
         
+        // Generujeme QR kódy pre všetky faktúry
+        const invoicesWithQR = await Promise.all(
+          invoices.map(async (invoice) => {
+            const qrCode = await generateQRCodeForInvoice(invoice);
+            return { ...invoice, qrCode };
+          })
+        );
+        
         // Sanitize company name for filename
         const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
         const fileName = month && year 
           ? `${sanitizedCompanyName}_${month}_${year}.pdf`
           : `${sanitizedCompanyName}.pdf`;
         
-        const blob = await pdf(<BulkInvoiceDocument invoices={invoices} />).toBlob();
+        const blob = await pdf(<BulkInvoiceDocument invoices={invoicesWithQR} />).toBlob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -481,6 +541,14 @@ const Invoices = () => {
           const { companyName, invoices } = invoicesByCompany[companyId];
           const [month, year] = getMonthYear(invoices);
           
+          // Generujeme QR kódy pre všetky faktúry
+          const invoicesWithQR = await Promise.all(
+            invoices.map(async (invoice) => {
+              const qrCode = await generateQRCodeForInvoice(invoice);
+              return { ...invoice, qrCode };
+            })
+          );
+          
           // Sanitize company name for filename
           const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
           const fileName = month && year 
@@ -489,7 +557,7 @@ const Invoices = () => {
           
           companyNames.push(companyName);
           
-          const blob = await pdf(<BulkInvoiceDocument invoices={invoices} />).toBlob();
+          const blob = await pdf(<BulkInvoiceDocument invoices={invoicesWithQR} />).toBlob();
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;

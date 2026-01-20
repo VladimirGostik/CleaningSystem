@@ -236,7 +236,6 @@ const formatDescription = (desc, billing_month, issue_date) => {
 const InvoiceExtendedPDFBulk = ({ invoice }) => {
   const {
     invoice_number,
-    invoice_name,
     issue_date,
     due_date,
     billing_month,
@@ -291,42 +290,8 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
 
   const totalPrice = formattedServices.reduce((acc, service) => acc + service.price * service.quantity, 0);
 
-  // Funkcia na vytvorenie QR kódu pre platobné údaje
-  const generateQRCodeData = () => {
-    if (!company_iban) return null;
-    
-    // Odstránime medzery z IBAN
-    const cleanIban = company_iban.replace(/\s+/g, '');
-    const amount = totalPrice.toFixed(2);
-    const variableSymbol = invoice_number.replace(/\s+/g, ''); // Odstránime medzery z čísla faktúry
-    const recipientName = (company_name || '').substring(0, 70); // Max 70 znakov
-    const message = (invoice_name || '').substring(0, 140); // Max 140 znakov
-    
-    // EPC QR Code formát (European Payment Council) - používa sa na Slovensku
-    // Tento formát podporujú slovenské banky (VÚB, Tatra banka, ČSOB, atď.)
-    const qrDataLines = [
-      'BCD',                    // Service Tag
-      '001',                    // Version
-      '1',                      // Character Set (1 = UTF-8)
-      'SCT',                    // Identification (SCT = SEPA Credit Transfer)
-      '',                       // BIC (voliteľné, prázdne pre SEPA)
-      recipientName,            // Name (max 70 znakov)
-      cleanIban,                // IBAN (bez medzier)
-      `EUR${amount}`,           // Amount a Currency (EUR123.45)
-      '',                       // Purpose (voliteľné)
-      message,                  // Remittance Information (Structured) - max 140 znakov
-      '',                       // Remittance Information (Unstructured) - voliteľné
-      variableSymbol            // Reference (Variabilný symbol)
-    ];
-    
-    // Spojíme riadky s novým riadkom
-    const qrData = qrDataLines.join('\n');
-    
-    // Použijeme službu na generovanie QR kódu s vyšším rozlíšením pre lepšiu čitateľnosť
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=H&data=${encodeURIComponent(qrData)}`;
-  };
-
-  const qrCodeUrl = generateQRCodeData();
+  // QR kód by mal byť už vygenerovaný a pridaný do invoice objektu
+  const qrCodeUrl = invoice.qrCode || null;
 
   return (
     <View style={styles.container}>
