@@ -222,6 +222,27 @@ const formatDescription = (desc, billing_month, issue_date) => {
     return formatted;
 };
 
+// Funkcia na konverziu formátu čísla faktúry pre variabilný symbol
+// Konvertuje "00185/2025" na "202500185" (rok + číslo s leading zeros)
+const formatInvoiceNumberForVariableSymbol = (invoiceNumber) => {
+  if (!invoiceNumber) return '';
+  
+  // Odstránime medzery
+  const cleanNumber = invoiceNumber.replace(/\s+/g, '');
+  
+  // Skontrolujeme, či je v starom formáte "číslo/rok"
+  const match = cleanNumber.match(/^(\d+)\/(\d{4})$/);
+  if (match) {
+    const numberPart = match[1]; // napr. "00185"
+    const yearPart = match[2]; // napr. "2025"
+    // Zachováme leading zeros v čísle a spojíme rok + číslo
+    return yearPart + numberPart; // "2025" + "00185" = "202500185"
+  }
+  
+  // Ak nie je v starom formáte, vrátime pôvodné číslo
+  return cleanNumber;
+};
+
 const InvoiceExtendedPdf = ({ invoice }) => {
     const {
         invoice_number,
@@ -369,7 +390,7 @@ const InvoiceExtendedPdf = ({ invoice }) => {
                             </Text>
                         )}
                         <Text style={styles.infoText}>
-                            <Text style={styles.boldText}>Variabilný symbol:</Text> {invoice_number}
+                            <Text style={styles.boldText}>Variabilný symbol:</Text> {formatInvoiceNumberForVariableSymbol(invoice_number)}
                         </Text>
                         <Text style={styles.infoText}>
                             <Text style={styles.boldText}>Forma úhrady:</Text> Prevodom
