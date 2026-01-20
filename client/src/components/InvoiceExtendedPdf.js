@@ -288,14 +288,26 @@ const InvoiceExtendedPdf = ({ invoice }) => {
         const cleanIban = company_iban.replace(/\s+/g, '');
         const amount = totalPrice.toFixed(2);
         const variableSymbol = invoice_number.replace(/\s+/g, ''); // Odstránime medzery z čísla faktúry
+        const recipientName = company_name || '';
         const message = invoice_name || '';
         
-        // Slovenský formát SPAYD (Structured Payment Data)
-        // Format: SPD*1.0*ACC:IBAN*AM:AMOUNT*VS:VARIABLE_SYMBOL*MSG:MESSAGE
-        const qrData = `SPD*1.0*ACC:${cleanIban}*AM:${amount}*VS:${variableSymbol}*MSG:${message}`;
+        // Slovenský formát SPAYD (Short Payment Descriptor) pre slovenské banky
+        // Format: SPD*1.0*ACC:IBAN*AM:AMOUNT*CC:EUR*RN:RECIPIENT_NAME*VS:VARIABLE_SYMBOL*MSG:MESSAGE
+        // Všetky parametre sú voliteľné okrem ACC (IBAN)
+        const qrDataParts = [
+            'SPD*1.0',
+            `ACC:${cleanIban}`,
+            `AM:${amount}`,
+            'CC:EUR',
+            recipientName ? `RN:${recipientName}` : '',
+            variableSymbol ? `VS:${variableSymbol}` : '',
+            message ? `MSG:${message}` : ''
+        ].filter(part => part !== ''); // Odstránime prázdne časti
         
-        // Použijeme službu na generovanie QR kódu
-        return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`;
+        const qrData = qrDataParts.join('*');
+        
+        // Použijeme službu na generovanie QR kódu s vyšším rozlíšením pre lepšiu čitateľnosť
+        return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(qrData)}`;
     };
 
     const qrCodeUrl = generateQRCodeData();
