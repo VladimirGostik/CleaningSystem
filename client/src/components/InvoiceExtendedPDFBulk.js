@@ -299,26 +299,31 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
     const cleanIban = company_iban.replace(/\s+/g, '');
     const amount = totalPrice.toFixed(2);
     const variableSymbol = invoice_number.replace(/\s+/g, ''); // Odstránime medzery z čísla faktúry
-    const recipientName = company_name || '';
-    const message = invoice_name || '';
+    const recipientName = (company_name || '').substring(0, 70); // Max 70 znakov
+    const message = (invoice_name || '').substring(0, 140); // Max 140 znakov
     
-    // Slovenský formát SPAYD (Short Payment Descriptor) pre slovenské banky
-    // Format: SPD*1.0*ACC:IBAN*AM:AMOUNT*CC:EUR*RN:RECIPIENT_NAME*VS:VARIABLE_SYMBOL*MSG:MESSAGE
-    // Všetky parametre sú voliteľné okrem ACC (IBAN)
-    const qrDataParts = [
-      'SPD*1.0',
-      `ACC:${cleanIban}`,
-      `AM:${amount}`,
-      'CC:EUR',
-      recipientName ? `RN:${recipientName}` : '',
-      variableSymbol ? `VS:${variableSymbol}` : '',
-      message ? `MSG:${message}` : ''
-    ].filter(part => part !== ''); // Odstránime prázdne časti
+    // EPC QR Code formát (European Payment Council) - používa sa na Slovensku
+    // Tento formát podporujú slovenské banky (VÚB, Tatra banka, ČSOB, atď.)
+    const qrDataLines = [
+      'BCD',                    // Service Tag
+      '001',                    // Version
+      '1',                      // Character Set (1 = UTF-8)
+      'SCT',                    // Identification (SCT = SEPA Credit Transfer)
+      '',                       // BIC (voliteľné, prázdne pre SEPA)
+      recipientName,            // Name (max 70 znakov)
+      cleanIban,                // IBAN (bez medzier)
+      `EUR${amount}`,           // Amount a Currency (EUR123.45)
+      '',                       // Purpose (voliteľné)
+      message,                  // Remittance Information (Structured) - max 140 znakov
+      '',                       // Remittance Information (Unstructured) - voliteľné
+      variableSymbol            // Reference (Variabilný symbol)
+    ];
     
-    const qrData = qrDataParts.join('*');
+    // Spojíme riadky s novým riadkom
+    const qrData = qrDataLines.join('\n');
     
     // Použijeme službu na generovanie QR kódu s vyšším rozlíšením pre lepšiu čitateľnosť
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(qrData)}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=H&data=${encodeURIComponent(qrData)}`;
   };
 
   const qrCodeUrl = generateQRCodeData();
