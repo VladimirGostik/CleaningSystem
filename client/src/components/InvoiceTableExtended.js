@@ -122,6 +122,28 @@ const InvoiceTableExtended = ({
     setShowActions((prev) => (prev === invoiceId ? null : invoiceId));
   };
 
+  // Funkcia na konverziu formátu čísla faktúry pre variabilný symbol
+  // Konvertuje "00185/2025" na "20250185" (rok + číslo bez leading zeros)
+  const formatInvoiceNumberForVariableSymbol = (invoiceNumber) => {
+    if (!invoiceNumber) return '';
+    
+    // Odstránime medzery
+    const cleanNumber = invoiceNumber.replace(/\s+/g, '');
+    
+    // Skontrolujeme, či je v starom formáte "číslo/rok"
+    const match = cleanNumber.match(/^(\d+)\/(\d{4})$/);
+    if (match) {
+      const numberPart = match[1]; // napr. "00185"
+      const yearPart = match[2]; // napr. "2025"
+      // Odstránime leading zeros z čísla a spojíme rok + číslo
+      const numberWithoutZeros = parseInt(numberPart, 10).toString();
+      return yearPart + numberWithoutZeros; // "2025" + "185" = "20250185"
+    }
+    
+    // Ak nie je v starom formáte, vrátime pôvodné číslo
+    return cleanNumber;
+  };
+
   const handlePdfView = async (invoice) => {
     setSelectedInvoice(invoice);
     
@@ -137,7 +159,7 @@ const InvoiceTableExtended = ({
           return acc + (price * quantity);
         }, 0);
         const amount = parseFloat(totalPrice.toFixed(2));
-        const variableSymbol = (invoice.invoice_number || '').replace(/\s+/g, '');
+        const variableSymbol = formatInvoiceNumberForVariableSymbol(invoice.invoice_number);
         const recipientName = (invoice.company_name || '').substring(0, 70); // Názov príjemcu = company_name
         const message = (invoice.invoice_name || '').substring(0, 140); // Informácia pre príjemcu = invoice_name
         
@@ -392,7 +414,7 @@ const InvoiceTableExtended = ({
                             return acc + (price * quantity);
                           }, 0);
                           const amount = parseFloat(totalPrice.toFixed(2));
-                          const variableSymbol = (selectedInvoice.invoice_number || '').replace(/\s+/g, '');
+                          const variableSymbol = formatInvoiceNumberForVariableSymbol(selectedInvoice.invoice_number);
                           const recipientName = (selectedInvoice.company_name || '').substring(0, 70); // Názov príjemcu = company_name
                           const message = (selectedInvoice.invoice_name || '').substring(0, 140); // Informácia pre príjemcu = invoice_name
                           
