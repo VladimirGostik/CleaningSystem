@@ -726,12 +726,12 @@ const Invoices = () => {
         // Hlavička tabuľky
         excelData.push(['Č. faktúry', '', 'Suma', 'Vyplatené']);
         
-        // Zoskupiť faktúry podľa residential_company_name
+        // Zoskupiť faktúry podľa id_residential_company (nie podľa názvu)
         const invoicesByResidential = {};
         for (const invoice of invoices) {
-          // Získať názov rezidenčnej firmy
+          const groupKey = String(invoice.id_residential_company ?? 'bez_firmy');
+
           let residentialName = invoice.residential_company_name || '';
-          
           if (!residentialName && invoice.id_residential_company) {
             try {
               const residentialCompany = await getResidentialCompanyById(invoice.id_residential_company);
@@ -740,35 +740,27 @@ const Invoices = () => {
               console.error('Error fetching residential company:', error);
             }
           }
-          
-          // Ak stále nie je názov, použiť "Bez rezidenčnej firmy"
-          if (!residentialName) {
-            residentialName = 'Bez rezidenčnej firmy';
+          if (!residentialName) residentialName = 'Bez rezidenčnej firmy';
+
+          if (!invoicesByResidential[groupKey]) {
+            invoicesByResidential[groupKey] = { residentialName, invoices: [] };
           }
-          
-          if (!invoicesByResidential[residentialName]) {
-            invoicesByResidential[residentialName] = [];
-          }
-          
-          invoicesByResidential[residentialName].push(invoice);
+          invoicesByResidential[groupKey].invoices.push(invoice);
         }
-        
-        // Poradie skupín = poradie prvého výskytu pri prechode zoradeným zoznamom (podľa čísla faktúry), t.j. klient s najnižším číslom hore
-        const residentialCompanyNames = Object.keys(invoicesByResidential);
+
+        // Poradie skupín = poradie prvého výskytu (podľa čísla faktúry)
+        const residentialGroupKeys = Object.keys(invoicesByResidential);
         let isFirstGroup = true;
 
-        for (const residentialName of residentialCompanyNames) {
-          const groupInvoices = [...(invoicesByResidential[residentialName] || [])];
+        for (const groupKey of residentialGroupKeys) {
+          const group = invoicesByResidential[groupKey];
+          const groupInvoices = [...group.invoices];
           groupInvoices.sort((a, b) => getInvoiceSortKey(a) - getInvoiceSortKey(b));
 
-          // Pridať prázdny riadok pred každou skupinou (okrem prvej)
-          if (!isFirstGroup) {
-            excelData.push([]);
-          }
+          if (!isFirstGroup) excelData.push([]);
           isFirstGroup = false;
 
-          // Pridať názov residential company (do druhého stĺpca)
-          excelData.push(['', residentialName, '', '']);
+          excelData.push(['', group.residentialName, '', '']);
 
           // Pridať faktúry pre túto residential company (už zoradené podľa čísla)
           for (const invoice of groupInvoices) {
@@ -839,16 +831,10 @@ const Invoices = () => {
         });
         
         // Formátovanie názvov residential companies (tučné a väčšie)
-        let currentRow = headerRow + 1; // Začneme za hlavičkou tabuľky
-        for (let i = 0; i < residentialCompanyNames.length; i++) {
-          const residentialName = residentialCompanyNames[i];
-          
-          // Prázdny riadok (ak nie je prvá skupina)
-          if (i > 0) {
-            currentRow++;
-          }
-          
-          // Riadok s názvom residential company (druhý stĺpec, hrubým písmom)
+        let currentRow = headerRow + 1;
+        for (let i = 0; i < residentialGroupKeys.length; i++) {
+          const group = invoicesByResidential[residentialGroupKeys[i]];
+          if (i > 0) currentRow++;
           currentRow++;
           const nameCell = `B${currentRow}`;
           if (worksheet[nameCell]) {
@@ -857,9 +843,7 @@ const Invoices = () => {
               alignment: { horizontal: 'left' }
             };
           }
-          
-          // Preskočiť faktúry tejto skupiny
-          currentRow += invoicesByResidential[residentialName].length;
+          currentRow += group.invoices.length;
         }
         
         // Formátovanie stĺpca Suma (číselný formát)
