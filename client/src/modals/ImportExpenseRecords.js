@@ -25,6 +25,7 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
     const cdtDbtInd = ntry.getElementsByTagNameNS(ns, 'CdtDbtInd')[0]?.textContent;
     if (cdtDbtInd !== 'DBIT') return null;
 
+    const ntry_ref = ntry.getElementsByTagNameNS(ns, 'NtryRef')[0]?.textContent?.trim() || null;
     const amount = ntry.getElementsByTagNameNS(ns, 'Amt')[0]?.textContent;
     const paymentDate = ntry.getElementsByTagNameNS(ns, 'BookgDt')[0]
       ?.getElementsByTagNameNS(ns, 'Dt')[0]
@@ -86,7 +87,8 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
       price: amount,
       type: "jednorazova",
       deductibility: 100,
-      start_date: paymentDate
+      start_date: paymentDate,
+      ntry_ref,
     };
   };
 

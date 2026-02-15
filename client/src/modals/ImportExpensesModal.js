@@ -37,6 +37,7 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
   const parseTransaction = (ntry, ns) => {
     const cdtDbtInd = ntry.getElementsByTagNameNS(ns, 'CdtDbtInd')[0]?.textContent;
     if (cdtDbtInd !== 'CRDT') return null;
+    const ntryRef = ntry.getElementsByTagNameNS(ns, 'NtryRef')[0]?.textContent?.trim() || null;
     const amount = ntry.getElementsByTagNameNS(ns, 'Amt')[0]?.textContent;
     const paymentDate = ntry.getElementsByTagNameNS(ns, 'BookgDt')[0]
       ?.getElementsByTagNameNS(ns, 'Dt')[0]?.textContent;
@@ -48,10 +49,17 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
         const match = endToEndId.match(/\/VS(\d+)/);
         if (match) {
           const rawVS = match[1];
-          const yearPart = rawVS.slice(-4);
-          const numberPart = rawVS.slice(0, -4) || '0';
-          const paddedNumber = numberPart.padStart(5, '0');
-          vs = `${paddedNumber}/${yearPart}`;
+          // Nový formát: YYYYNNNN alebo YYYYNNNNN (rok + číslo), napr. 20250185 alebo 202500185
+          const isNewFormat = /^\d{8,9}$/.test(rawVS) && /^20[2-3]\d/.test(rawVS);
+          if (isNewFormat) {
+            vs = rawVS;
+          } else {
+            // Starý formát: číslo + rok (posledné 4 = rok), napr. 001852025 -> 00185/2025
+            const yearPart = rawVS.slice(-4);
+            const numberPart = rawVS.slice(0, -4) || '0';
+            const paddedNumber = numberPart.padStart(5, '0');
+            vs = `${paddedNumber}/${yearPart}`;
+          }
         } else {
           vs = endToEndId;
         }
@@ -68,7 +76,7 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
         ?.getElementsByTagNameNS(ns, 'Id')[0]
         ?.getElementsByTagNameNS(ns, 'IBAN')[0]?.textContent;
     }
-    return { amount, debtorAcct, creditorAcct, vs, paymentDate, senderName, description };
+    return { amount, debtorAcct, creditorAcct, vs, paymentDate, senderName, description, ntryRef };
   };
 
   const handleFileSelect = (event) => {

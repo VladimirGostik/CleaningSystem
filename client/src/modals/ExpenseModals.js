@@ -300,6 +300,7 @@ export const EditExpenseModal = ({ isOpen, onClose, onSubmit, companies, expense
     start_date: expense ? expense.start_date : '',
     end_date: expense ? expense.end_date : '',
     type: expense ? expense.type : 'jednorazova',
+    id_invoice: expense ? expense.id_invoice ?? '' : '',
   });
 
   useEffect(() => {
@@ -313,6 +314,7 @@ export const EditExpenseModal = ({ isOpen, onClose, onSubmit, companies, expense
         start_date: expense.start_date,
         end_date: expense.end_date,
         type: expense.type,
+        id_invoice: expense.id_invoice ?? '',
       });
     }
   }, [expense]);
@@ -424,6 +426,23 @@ export const EditExpenseModal = ({ isOpen, onClose, onSubmit, companies, expense
               className="w-full border px-3 py-2 rounded-md"
               required
             />
+          </div>
+          {/* Faktúra (voliteľné) */}
+          <div className="mb-4">
+            <label className="block text-gray-700">Faktúra (ID, voliteľné)</label>
+            <input
+              type="number"
+              min="1"
+              placeholder="ID faktúry alebo prázdne"
+              value={formData.id_invoice || ''}
+              onChange={(e) =>
+                setFormData({ ...formData, id_invoice: e.target.value ? parseInt(e.target.value, 10) : '' })
+              }
+              className="w-full border px-3 py-2 rounded-md"
+            />
+            {expense?.invoice?.invoice_number && (
+              <p className="text-xs text-gray-500 mt-1">Príslušná faktúra: {expense.invoice.invoice_number}</p>
+            )}
           </div>
           {/* Akcie */}
           <div className="flex justify-end gap-2">

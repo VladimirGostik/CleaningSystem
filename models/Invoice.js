@@ -141,6 +141,15 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             allowNull: true,
         },
+        id_monthly_invoice: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'monthly_invoices',
+                key: 'id',
+            },
+            onDelete: 'SET NULL',
+        },
     }, {
         tableName: 'invoices', // Názov tabuľky
     });
@@ -148,6 +157,8 @@ module.exports = (sequelize, DataTypes) => {
     // Definícia asociácií
     Invoice.associate = (models) => {
         Invoice.hasMany(models.Service, { foreignKey: 'invoice_id', as: 'services' });
+        Invoice.hasMany(models.Expense, { foreignKey: 'id_invoice', as: 'expenses' });
+        Invoice.belongsTo(models.MonthlyInvoice, { foreignKey: 'id_monthly_invoice', as: 'monthlyInvoice' });
     };
 
     return Invoice;

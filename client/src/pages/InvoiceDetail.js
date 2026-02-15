@@ -33,6 +33,8 @@ const InvoiceDetail = () => {
   const [billingMonth, setBillingMonth] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
   const [status, setStatus] = useState('');
+  const [idMonthlyInvoice, setIdMonthlyInvoice] = useState(null);
+  const [syncToMonthlyInvoice, setSyncToMonthlyInvoice] = useState(false);
 
   useEffect(() => {
     // Load companies and residential companies
@@ -101,6 +103,7 @@ const InvoiceDetail = () => {
             price: service.price,
           })) || [{ name: '', quantity: '', price: '' }]
         );
+        setIdMonthlyInvoice(invoice.id_monthly_invoice ?? null);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching invoice data:', error);
@@ -193,6 +196,7 @@ const InvoiceDetail = () => {
     const dataToSend = {
       ...invoiceData,
       services: servicesData,
+      ...(idMonthlyInvoice ? { syncToMonthlyInvoice } : {}),
     };
 
     try {
@@ -878,6 +882,23 @@ const InvoiceDetail = () => {
                 </button>
               </div>
             </div>
+
+            {/* Voliteľne: prekopírovať zmeny do mesačnej faktúry */}
+            {idMonthlyInvoice && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={syncToMonthlyInvoice}
+                    onChange={(e) => setSyncToMonthlyInvoice(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Prekopírovať zmeny do príslušnej mesačnej faktúry (šablóny)
+                  </span>
+                </label>
+              </div>
+            )}
 
             {/* Form Actions */}
             <div className="flex justify-between">

@@ -1,14 +1,14 @@
 // controllers/expenseController.js
-const { Expense, Company } = require('../models');
+const { Expense, Company, Invoice } = require('../models');
 
 exports.getAllExpenses = async (req, res) => {
   try {
-    // Načítame všetky výdavky so spoločnosťou (ak je potrebné)
+    // Načítame všetky výdavky so spoločnosťou a voliteľne s faktúrou
     const expenses = await Expense.findAll({
-      include: [{
-        model: Company,
-        attributes: ['id', ['company_name', 'name']]
-      }],
+      include: [
+        { model: Company, attributes: ['id', ['company_name', 'name']] },
+        { model: Invoice, as: 'invoice', attributes: ['id', 'invoice_number'], required: false }
+      ],
     });
     res.status(200).json(expenses);
   } catch (error) {
@@ -25,12 +25,12 @@ exports.getExpenses = async (req, res) => {
     // Vytvoríme objekt predstavujúci začiatok aktuálneho mesiaca
     const currentMonthStart = new Date(yearNum, monthNum - 1, 1);
 
-    // Načítame všetky výdavky (s pripojenou spoločnosťou aliasovanou)
+    // Načítame všetky výdavky (s pripojenou spoločnosťou a voliteľne faktúrou)
     let expenses = await Expense.findAll({
-      include: [{
-        model: Company,
-        attributes: ['id', ['company_name', 'name']]
-      }],
+      include: [
+        { model: Company, attributes: ['id', ['company_name', 'name']] },
+        { model: Invoice, as: 'invoice', attributes: ['id', 'invoice_number'], required: false }
+      ],
     });
 
     // Filtrovanie výdavkov podľa typu a dátumov
@@ -68,7 +68,7 @@ exports.getExpenses = async (req, res) => {
 
 exports.createExpense = async (req, res) => {
   try {
-    const { id_company, name, description, price, deductibility, type, start_date, end_date } = req.body;
+    const { id_company, name, description, price, deductibility, type, start_date, end_date, id_invoice, ntry_ref } = req.body;
     if (!id_company || !name || !price || !deductibility || !type || !start_date) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -85,6 +85,8 @@ exports.createExpense = async (req, res) => {
       type,
       start_date,
       end_date: type === 'jednorazova' ? null : end_date,
+      id_invoice: id_invoice || null,
+      ntry_ref: ntry_ref || null,
     });
     res.status(201).json(expense);
   } catch (error) {
@@ -96,7 +98,7 @@ exports.createExpense = async (req, res) => {
 exports.updateExpense = async (req, res) => {
   try {
     const expenseId = req.params.id;
-    const { id_company, name, description, price, deductibility, type, start_date, end_date } = req.body;
+    const { id_company, name, description, price, deductibility, type, start_date, end_date, id_invoice, ntry_ref } = req.body;
     const expense = await Expense.findByPk(expenseId);
     if (!expense) {
       return res.status(404).json({ error: 'Expense not found' });
@@ -111,6 +113,8 @@ exports.updateExpense = async (req, res) => {
     expense.type = type;
     expense.start_date = start_date;
     expense.end_date = type === 'jednorazova' ? null : end_date;
+    expense.id_invoice = (id_invoice !== undefined && id_invoice !== '' && id_invoice != null) ? id_invoice : null;
+    expense.ntry_ref = (ntry_ref !== undefined && ntry_ref !== '' && ntry_ref != null) ? ntry_ref : null;
     await expense.save();
     res.json(expense);
   } catch (error) {
@@ -147,9 +151,32 @@ exports.importExpenses = async (req, res) => {
       return { ...expData, final_price: computedFinalPrice };
     });
 
-    // Vytvorenie výdavkov pomocou bulkCreate
-    const createdExpenses = await Expense.bulkCreate(expensesWithFinalPrice);
-    res.status(201).json({ message: 'Expenses imported successfully', expenses: createdExpenses });
+    // Vyfiltrujeme záznamy, ktoré už máme podľa ntry_ref (žiadne duplicity)
+    const ntryRefsToImport = expensesWithFinalPrice
+      .map(e => e.ntry_ref)
+      .filter(ref => ref != null && String(ref).trim() !== '');
+    let toCreate = expensesWithFinalPrice;
+    if (ntryRefsToImport.length > 0) {
+      const existing = await Expense.findAll({
+        where: { ntry_ref: ntryRefsToImport },
+        attributes: ['ntry_ref'],
+      });
+      const existingRefs = new Set((existing || []).map(e => e.ntry_ref));
+      toCreate = expensesWithFinalPrice.filter(e => !e.ntry_ref || !existingRefs.has(e.ntry_ref));
+    }
+    const skippedCount = expensesWithFinalPrice.length - toCreate.length;
+    if (skippedCount > 0) {
+      console.log(`Import výdavkov: preskočených ${skippedCount} záznamov (duplicitný NtryRef).`);
+    }
+
+    const createdExpenses = toCreate.length > 0
+      ? await Expense.bulkCreate(toCreate)
+      : [];
+    res.status(201).json({
+      message: 'Expenses imported successfully',
+      expenses: createdExpenses,
+      skippedDuplicates: skippedCount,
+    });
   } catch (error) {
     console.error('Error importing expenses:', error);
     res.status(500).json({ error: 'Internal Server Error' });

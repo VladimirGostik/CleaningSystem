@@ -126,6 +126,10 @@ module.exports = (sequelize, DataTypes) => {
             foreignKey: 'id_invoice_monthly_invoices',
             as: 'services_planned'
         });
+        MonthlyInvoice.hasMany(models.Invoice, {
+            foreignKey: 'id_monthly_invoice',
+            as: 'invoices'
+        });
     };
 
     return MonthlyInvoice;

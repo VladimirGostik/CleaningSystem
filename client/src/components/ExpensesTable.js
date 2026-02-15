@@ -12,6 +12,7 @@ const ExpensesTable = ({ expenses, onEdit, onDelete }) => {
             <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Popis</th>
             <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Suma</th>
             <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Odpočítateľnosť</th>
+            <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Faktúra</th>
             <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Akcie</th>
           </tr>
         </thead>
@@ -35,6 +36,9 @@ const ExpensesTable = ({ expenses, onEdit, onDelete }) => {
                   {expense.deductibility}%
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
+                  {expense.invoice?.invoice_number || expense.id_invoice ? `#${expense.id_invoice}` : '–'}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">
                   <button onClick={() => onEdit(expense)} className="text-blue-500 hover:underline mr-2">
                     Upraviť
                   </button>
@@ -46,7 +50,7 @@ const ExpensesTable = ({ expenses, onEdit, onDelete }) => {
             ))
           ) : (
             <tr>
-              <td colSpan="8" className="text-center py-4 text-gray-600">
+              <td colSpan="7" className="text-center py-4 text-gray-600">
                 Žiadne výdavky
               </td>
             </tr>

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { useNavigate, useLocation } from 'react-router-dom';
 import MarkAsPaidModal from '../modals/MarkAsPaidModal';
 import { PDFViewer, pdf } from '@react-pdf/renderer';
 import InvoiceExtendedPdf from './InvoiceExtendedPdf';
@@ -30,8 +29,6 @@ const InvoiceTableExtended = ({
   const allSelected = invoices.length > 0 && invoices.every(invoice => selectedInvoiceIds.includes(invoice.id));
   const [residentialCompaniesMap, setResidentialCompaniesMap] = useState({}); // Map of residential companies by ID
   const actionsRef = useRef(null);
-  const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
     const fetchResidentialCompanies = async () => {
@@ -197,11 +194,6 @@ const InvoiceTableExtended = ({
     setShowPdfModal(true);
   };
 
-  const handleViewDetail = (invoice) => {
-    // Navigate to detail page with current location state to preserve filters
-    navigate(`/invoices/${invoice.id}`, { state: location.state });
-  };
-
   return (
     <>
       <table className="w-full border-collapse table-fixed">
@@ -322,20 +314,11 @@ const InvoiceTableExtended = ({
                       <button
                         className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
                         onClick={() => {
-                          handleViewDetail(invoice);
-                          setShowActions(null);
-                        }}
-                      >
-                        Detail
-                      </button>
-                      <button
-                        className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
-                        onClick={() => {
                           handlePdfView(invoice);
                           setShowActions(null);
                         }}
                       >
-                        PDF
+                        Náhľad PDF
                       </button>
                       <button
                         className="w-full text-left px-4 py-2 text-blue-600 hover:bg-blue-100 transition-colors duration-200"

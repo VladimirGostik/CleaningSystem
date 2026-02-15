@@ -1,6 +1,35 @@
 // controllers/invoiceController.js
 const { Sequelize, Op } = require('sequelize');
-const { Invoice, MonthlyInvoice, Service, ServicePlanned , Company} = require('../models');
+const { Invoice, MonthlyInvoice, Service, ServicePlanned, Company, Expense } = require('../models');
+
+/** Vytvorí záznam výdavku pre zaplatenú faktúru (bez duplicity podľa id_invoice alebo ntry_ref). */
+async function createExpenseForPaidInvoice(invoice, totalAmount, paymentDate, ntryRef) {
+  if (!invoice || !invoice.id_company || totalAmount == null) return;
+  if (ntryRef) {
+    const existingByRef = await Expense.findOne({ where: { ntry_ref: ntryRef } });
+    if (existingByRef) return;
+  }
+  const existingByInvoice = await Expense.findOne({ where: { id_invoice: invoice.id } });
+  if (existingByInvoice) return;
+  const price = parseFloat(totalAmount);
+  const deductibility = 100;
+  const finalPrice = price * (deductibility / 100);
+  const paymentDateStr = typeof paymentDate === 'string' ? paymentDate.split('T')[0] : (paymentDate ? new Date(paymentDate).toISOString().split('T')[0] : null);
+  if (!paymentDateStr) return;
+  await Expense.create({
+    id_company: invoice.id_company,
+    name: `Uhradená faktúra ${invoice.invoice_number || invoice.id}`,
+    description: invoice.invoice_name ? `Faktúra: ${invoice.invoice_name}` : null,
+    price,
+    deductibility,
+    final_price: finalPrice,
+    type: 'jednorazova',
+    start_date: paymentDateStr,
+    end_date: null,
+    id_invoice: invoice.id,
+    ntry_ref: ntryRef || null,
+  });
+}
 
 // Vytvorenie novej faktúry s pridruženými službami
 exports.createInvoice = async (req, res) => {
@@ -101,16 +130,27 @@ exports.getLastInvoiceNumber = async (req, res) => {
 // Aktualizácia faktúry
 // controllers/invoiceController.js
 
+/** Polia zdieľané medzi faktúrou a mesačnou šablónou – pre prekopírovanie. */
+const SHARED_INVOICE_MONTHLY_FIELDS = [
+  'invoice_name', 'id_company', 'id_residential_company',
+  'company_name', 'company_address', 'postal_code', 'city',
+  'company_ico', 'company_dic', 'company_ic_dph', 'company_iban', 'bank_connection',
+  'residential_company_name', 'residential_company_address', 'residential_postal_code', 'residential_city',
+  'residential_company_ico', 'residential_company_dic', 'residential_company_ic_dph', 'residential_company_iban', 'residential_bank_connection',
+  'header1', 'header2', 'header3', 'header4',
+  'description_above_services', 'description_services',
+];
+
 exports.updateInvoice = async (req, res) => {
   try {
-    const { services, ...invoiceData } = req.body;
+    const { services, syncToMonthlyInvoice, ...invoiceData } = req.body;
     const invoice = await Invoice.findByPk(req.params.id);
 
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
 
-    // Update invoice fields
+    // Update invoice fields (bez syncToMonthlyInvoice)
     invoice.set(invoiceData);
 
     // Save changes
@@ -124,6 +164,31 @@ exports.updateInvoice = async (req, res) => {
         invoice_id: invoice.id,
       }));
       await Service.bulkCreate(servicesData);
+    }
+
+    // Voliteľne prekopírovať zmeny do príslušnej mesačnej faktúry (šablóny)
+    if (syncToMonthlyInvoice && invoice.id_monthly_invoice) {
+      const monthly = await MonthlyInvoice.findByPk(invoice.id_monthly_invoice, {
+        include: [{ model: ServicePlanned, as: 'services_planned' }],
+      });
+      if (monthly) {
+        const updates = {};
+        for (const key of SHARED_INVOICE_MONTHLY_FIELDS) {
+          if (invoice.get(key) !== undefined) updates[key] = invoice.get(key);
+        }
+        await monthly.update(updates);
+        // Služby: nahradiť plánované služby aktuálnymi z faktúry
+        const servicesList = services && Array.isArray(services) ? services : [];
+        await ServicePlanned.destroy({ where: { id_invoice_monthly_invoices: monthly.id } });
+        if (servicesList.length > 0) {
+          await ServicePlanned.bulkCreate(servicesList.map((s) => ({
+            id_invoice_monthly_invoices: monthly.id,
+            name: s.name,
+            quantity: parseInt(s.quantity, 10) || 1,
+            price: parseFloat(s.price) || 0,
+          })));
+        }
+      }
     }
 
     // Fetch updated invoice with services
@@ -191,11 +256,12 @@ exports.generateMonthlyInvoices = async (req, res) => {
       const formattedNumber = newNumber.toString().padStart(4, '0');
       const invoice_number = `${invoiceYear}${formattedNumber}`;
 
-      // Create the invoice
+      // Create the invoice (s odkazom na mesačnú šablónu)
       const invoiceData = {
         invoice_name: template.invoice_name,
         id_company: template.id_company,
         id_residential_company: template.id_residential_company,
+        id_monthly_invoice: template.id,
         issue_date,
         due_date,
         billing_month,
@@ -315,11 +381,12 @@ exports.generateMonthlyInvoicesForCompany = async (req, res) => {
       const formattedNumber = newNumber.toString().padStart(4, '0');
       const invoice_number = `${invoiceYear}${formattedNumber}`;
 
-      // Create the invoice
+      // Create the invoice (s odkazom na mesačnú šablónu)
       const invoiceData = {
         invoice_name: template.invoice_name,
         id_company: template.id_company,
         id_residential_company: template.id_residential_company,
+        id_monthly_invoice: template.id,
         issue_date,
         due_date,
         billing_month,
@@ -392,6 +459,16 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
     const wrongPriceTransactions = []; // Pre transakcie s nesúladom ceny
 
     for (const tx of transactions) {
+      // Ak má transakcia NtryRef a tento záznam už máme vo výdavkoch, preskočíme (žiadna duplicita)
+      const ntryRef = tx.ntryRef || tx.ntry_ref || null;
+      if (ntryRef) {
+        const existingExpense = await Expense.findOne({ where: { ntry_ref: ntryRef } });
+        if (existingExpense) {
+          console.log(`Transakcia s NtryRef ${ntryRef} už bola spracovaná, preskakujem.`);
+          continue;
+        }
+      }
+
       console.log(`Spracovávam transakciu: ${tx.vs}, IBAN: ${tx.creditorAcct}`);
 
       // Nájdeme firmu na základe IBAN-u (odstránime medzery)
@@ -415,7 +492,7 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
       }
 
       // Nájdeme faktúru pre danú firmu s daným invoice_number
-      // Podporujeme oba formáty: starý (00001/2026) aj nový (20260001)
+      // Podporujeme starý formát (00185/2025) aj nový (20250185 alebo 202500185)
       let invoice = await Invoice.findOne({
         where: {
           id_company: foundCompany.id,
@@ -424,31 +501,39 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
         include: [{ model: Service, as: 'services' }],
       });
 
-      // Ak faktúra nebola nájdená a VS je v starom formáte, skúsime previesť na nový formát
+      // Ak faktúra nebola nájdená a VS je v starom formáte (číslo/rok), skúsime nový formát (8 aj 9 znakov)
       if (!invoice && tx.vs.includes('/')) {
         const [numberPart, yearPart] = tx.vs.split('/');
-        const newFormat = `${yearPart}${numberPart.padStart(4, '0')}`;
+        const newFormat8 = `${yearPart}${numberPart.padStart(4, '0')}`;
+        const newFormat9 = `${yearPart}${numberPart.padStart(5, '0')}`;
         invoice = await Invoice.findOne({
-          where: {
-            id_company: foundCompany.id,
-            invoice_number: newFormat,
-          },
+          where: { id_company: foundCompany.id, invoice_number: newFormat8 },
           include: [{ model: Service, as: 'services' }],
         });
+        if (!invoice) {
+          invoice = await Invoice.findOne({
+            where: { id_company: foundCompany.id, invoice_number: newFormat9 },
+            include: [{ model: Service, as: 'services' }],
+          });
+        }
       }
 
-      // Ak faktúra nebola nájdená a VS je v novom formáte, skúsime previesť na starý formát
+      // Ak faktúra nebola nájdená a VS je v novom formáte (YYYYNNNN alebo YYYYNNNNN), skúsime starý formát a 8-znakový nový
       if (!invoice && !tx.vs.includes('/') && tx.vs.length >= 8) {
         const yearPart = tx.vs.substring(0, 4);
         const numberPart = tx.vs.substring(4);
         const oldFormat = `${numberPart.padStart(5, '0')}/${yearPart}`;
         invoice = await Invoice.findOne({
-          where: {
-            id_company: foundCompany.id,
-            invoice_number: oldFormat,
-          },
+          where: { id_company: foundCompany.id, invoice_number: oldFormat },
           include: [{ model: Service, as: 'services' }],
         });
+        if (!invoice && tx.vs.length === 9) {
+          const newFormat8 = yearPart + numberPart.slice(-4);
+          invoice = await Invoice.findOne({
+            where: { id_company: foundCompany.id, invoice_number: newFormat8 },
+            include: [{ model: Service, as: 'services' }],
+          });
+        }
       }
 
       if (!invoice) {
@@ -487,6 +572,12 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
       invoice.payment_date = tx.paymentDate;
       await invoice.save();
       updatedInvoices.push(invoice);
+      // Uložíme výdavok (zaplatená transakcia) s odkazom na faktúru a NtryRef proti duplicitám
+      try {
+        await createExpenseForPaidInvoice(invoice, parseFloat(computedSum), tx.paymentDate, ntryRef);
+      } catch (expErr) {
+        console.error('Chyba pri vytváraní výdavku pre faktúru:', expErr);
+      }
       console.log(`Faktúra ${tx.vs} bola úspešne aktualizovaná.`);
     }
 
@@ -628,7 +719,9 @@ exports.markInvoiceAsPaid = async (req, res) => {
     const { invoiceId } = req.params;
     const { payment_date } = req.body;
 
-    const invoice = await Invoice.findByPk(invoiceId);
+    const invoice = await Invoice.findByPk(invoiceId, {
+      include: [{ model: Service, as: 'services' }],
+    });
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
@@ -637,6 +730,18 @@ exports.markInvoiceAsPaid = async (req, res) => {
     invoice.status = 'paid';
     invoice.payment_date = payment_date;
     await invoice.save();
+
+    // Výpočet sumy faktúry a vytvorenie výdavku s odkazom na faktúru
+    const totalAmount = (invoice.services || []).reduce((acc, s) => {
+      const p = parseFloat(s.price) || 0;
+      const q = parseInt(s.quantity, 10) || 0;
+      return acc + p * q;
+    }, 0);
+    try {
+      await createExpenseForPaidInvoice(invoice, totalAmount, payment_date);
+    } catch (expErr) {
+      console.error('Chyba pri vytváraní výdavku pre faktúru:', expErr);
+    }
 
     res.status(200).json(invoice);
   } catch (error) {
