@@ -19,6 +19,7 @@ import * as XLSX from 'xlsx'; // Import xlsx for Excel export
 import QRCode from 'qrcode'; // Import QRCode library
 import { encode, PaymentOptions, CurrencyCode } from 'bysquare'; // Import BySquare library
 import { getResidentialCompanyById } from '../services/companyService';
+import { textContains } from '../utils/textUtils';
 import { 
   getInvoices, 
   addInvoice, 
@@ -235,19 +236,13 @@ const Invoices = () => {
     } = filters;
 
     const filtered = allInvoices.filter((invoice) => {
-      // Filter by invoice number
-      if (
-        invoice_number &&
-        !invoice.invoice_number.toLowerCase().includes(invoice_number.toLowerCase())
-      ) {
+      // Filter by invoice number (bez diakritiky a bez rozlišovania veľkosti)
+      if (invoice_number && !textContains(invoice.invoice_number, invoice_number)) {
         return false;
       }
 
-      // Filter by invoice name
-      if (
-        invoice_name &&
-        !invoice.invoice_name.toLowerCase().includes(invoice_name.toLowerCase())
-      ) {
+      // Filter by invoice name (bez diakritiky a bez rozlišovania veľkosti)
+      if (invoice_name && !textContains(invoice.invoice_name, invoice_name)) {
         return false;
       }
 

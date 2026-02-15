@@ -10,6 +10,7 @@ import {
 import { getExpenses, createExpense, updateExpense, deleteExpense } from '../services/expansesService';
 import { getCompanies } from '../services/companyService';
 import ImportExpenseRecords from '../modals/ImportExpenseRecords';
+import { textContains } from '../utils/textUtils';
 
 const Expenses = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -123,7 +124,7 @@ const Expenses = () => {
       ? expense.id_company === parseInt(selectedCompany, 10)
       : true;
     const matchesSearch = searchTerm
-      ? expense.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ? textContains(expense.name, searchTerm)
       : true;
     return matchesCompany && matchesSearch;
   });

@@ -5,6 +5,7 @@ import AddMonthlyInvoice from '../modals/AddMonthlyInvoice';
 import { addMonthlyInvoice, getMonthlyInvoices, deleteMonthlyInvoice } from '../services/monthlyInvoiceService';
 import InvoiceTable from '../components/InvoiceTable';
 import FilterInput from '../components/FilterInput';
+import { textContains } from '../utils/textUtils';
 
 const MonthlyInvoices = () => {
   const location = useLocation();
@@ -21,7 +22,7 @@ const MonthlyInvoices = () => {
     
     let filtered = invoicesToFilter;
     if (filters.invoiceName) {
-      filtered = filtered.filter(invoice => invoice.invoice_name.toLowerCase().includes(filters.invoiceName.toLowerCase()));
+      filtered = filtered.filter(invoice => textContains(invoice.invoice_name, filters.invoiceName));
     }
     if (filters.companies && filters.companies.length > 0) {
       filtered = filtered.filter(invoice => filters.companies.includes(invoice.company_name));

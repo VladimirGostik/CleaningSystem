@@ -6,6 +6,7 @@ import AddNewCompany from '../modals/AddNewCompany';
 import { addResidentialCompany, getResidentialCompanies } from '../services/companyService';
 import ResidentialCompanyItem from '../components/ResidentialCompanyItem';
 import SearchInput from '../components/SearchInput';
+import { textContains } from '../utils/textUtils';
 
 const ResidentialCompanies = () => {
   const [showModal, setShowModal] = useState(false);
@@ -48,7 +49,7 @@ const ResidentialCompanies = () => {
       setFilteredCompanies(companies);
     } else {
       const filtered = companies.filter(company =>
-        company.company_name.toLowerCase().includes(searchTerm.toLowerCase())
+        textContains(company.company_name, searchTerm)
       );
       setFilteredCompanies(filtered);
     }
