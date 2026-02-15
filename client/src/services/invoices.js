@@ -92,6 +92,17 @@ export const updateInvoice = async (invoiceId, updatedData) => {
   }
 };
 
+// ✏️ Uložiť faktúru a prekopírovať zmeny do mesačnej šablóny
+export const updateInvoiceAndSyncToMonthly = async (invoiceId, updatedData) => {
+  try {
+    const response = await axiosInstance.put(`/invoices/${invoiceId}/save-and-sync-to-monthly`, updatedData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating invoice and syncing to monthly:', error);
+    throw error;
+  }
+};
+
 // 🚀 Označenie faktúry ako ODOSLANÚ
 export const InvoicesMarkAsSent = async (invoiceId) => {
   try {

@@ -24,7 +24,8 @@ import {
   addInvoice, 
   generateMonthlyInvoices,
   generateMonthlyInvoicesForCompany,
-  updateInvoice, 
+  updateInvoice,
+  updateInvoiceAndSyncToMonthly,
   InvoicesMarkAsSent, 
   InvoicesMarkAsPaid, 
   deleteInvoice, 
@@ -167,6 +168,19 @@ const Invoices = () => {
     } catch (error) {
       console.error('Error updating invoice:', error);
       toast.error('Chyba pri úprave faktúry');
+    }
+  };
+
+  const handleSaveAndSyncToMonthly = async (invoiceId, data) => {
+    try {
+      await updateInvoiceAndSyncToMonthly(invoiceId, data);
+      setShowEditInvoiceModal(false);
+      setSelectedInvoiceId(null);
+      fetchInvoices();
+      toast.success('Faktúra upravená a zmeny prekopírované do mesačnej faktúry');
+    } catch (error) {
+      console.error('Error saving and syncing to monthly:', error);
+      toast.error('Chyba pri ukladaní alebo prekopírovaní do mesačnej faktúry');
     }
   };
 
@@ -1193,6 +1207,7 @@ const Invoices = () => {
             setSelectedInvoiceId(null);
           }}
           onSubmit={handleUpdateInvoice}
+          onSaveAndSyncToMonthly={handleSaveAndSyncToMonthly}
           invoiceId={selectedInvoiceId}
         />
       )}

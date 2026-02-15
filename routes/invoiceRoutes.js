@@ -9,9 +9,6 @@ router.put('/:invoiceId/mark-as-paid', invoiceController.markInvoiceAsPaid);
 // Označenie faktúry ako odoslané
 router.put('/:invoiceId/mark-as-sent', invoiceController.markInvoiceAsSent);
 
-// routes/invoiceRoutes.js
-router.get('/last-number', invoiceController.getLastInvoiceNumber); 
-
 router.post('/generate-monthly', invoiceController.generateMonthlyInvoices);
 
 router.post('/generate-monthly-for-company', invoiceController.generateMonthlyInvoicesForCompany);
@@ -24,22 +21,24 @@ router.put('/update-from-transactions', invoiceController.updateInvoicesFromTran
 router.post('/bulk-delete', invoiceController.bulkDeleteInvoices);
 
 router.put('/bulk-update-dates', invoiceController.bulkUpdateInvoiceDates);
+
+// Štatistiky a špeciálne GET routy musia byť PRED /:id (inak "statistics" / "last-number" sa interpretujú ako id)
+router.get('/statistics', invoiceController.getInvoiceStatistics);
+router.get('/last-number', invoiceController.getLastInvoiceNumber);
+// Získanie všetkých faktúr (musí byť pred /:id)
+router.get('/', invoiceController.getAllInvoices);
 // Získanie faktúry podľa ID
 router.get('/:id', invoiceController.getInvoiceById);
 
 // Vytvorenie novej faktúry
 router.post('/', invoiceController.createInvoice);
 
+// Uložiť faktúru a prekopírovať zmeny do mesačnej šablóny (pred PUT /:id)
+router.put('/:id/save-and-sync-to-monthly', invoiceController.updateInvoiceAndSyncToMonthly);
 // Aktualizácia faktúry
 router.put('/:id', invoiceController.updateInvoice);
 
 // Vymazanie faktúry
 router.delete('/:id', invoiceController.deleteInvoice);
-
-// Získanie všetkých faktúr
-router.get('/', invoiceController.getAllInvoices);
-
-// Získanie štatistík faktúr
-router.get('/statistics', invoiceController.getInvoiceStatistics);
  
 module.exports = router;

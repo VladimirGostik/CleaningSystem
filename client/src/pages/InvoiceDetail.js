@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout';
-import { getInvoiceById, updateInvoice } from '../services/invoices';
+import { getInvoiceById, updateInvoice, updateInvoiceAndSyncToMonthly } from '../services/invoices';
 import {
   getCompanies,
   getCompanyById,
@@ -34,7 +34,6 @@ const InvoiceDetail = () => {
   const [paymentDate, setPaymentDate] = useState('');
   const [status, setStatus] = useState('');
   const [idMonthlyInvoice, setIdMonthlyInvoice] = useState(null);
-  const [syncToMonthlyInvoice, setSyncToMonthlyInvoice] = useState(false);
 
   useEffect(() => {
     // Load companies and residential companies
@@ -193,20 +192,73 @@ const InvoiceDetail = () => {
       price: parseFloat(service.price),
     }));
 
-    const dataToSend = {
-      ...invoiceData,
-      services: servicesData,
-      ...(idMonthlyInvoice ? { syncToMonthlyInvoice } : {}),
-    };
+    const dataToSend = { ...invoiceData, services: servicesData };
 
     try {
       await updateInvoice(id, dataToSend);
       toast.success('Faktúra úspešne upravená');
-      // Navigate back with state to preserve filters
       navigate('/invoices', { state: location.state });
     } catch (error) {
       console.error('Error updating invoice:', error);
       toast.error('Chyba pri úprave faktúry');
+    }
+  };
+
+  const handleSaveAndSyncToMonthly = async (e) => {
+    e.preventDefault();
+    const billingMonthNumber = billingMonth ? parseInt(billingMonth, 10) : null;
+    if (!billingMonthNumber || isNaN(billingMonthNumber) || billingMonthNumber < 1 || billingMonthNumber > 12) {
+      toast.error('Prosím vyberte platný fakturačný mesiac (1-12).');
+      return;
+    }
+    const invoiceData = {
+      invoice_name: invoiceName,
+      id_company: selectedCompany,
+      id_residential_company: selectedResidentialCompany,
+      company_name: companyDetails.company_name || null,
+      company_address: companyDetails.company_address || null,
+      city: companyDetails.city || null,
+      postal_code: companyDetails.postal_code || null,
+      company_ico: companyDetails.ico || null,
+      company_dic: companyDetails.dic || null,
+      company_ic_dph: companyDetails.company_ic_dph || null,
+      company_iban: companyDetails.company_iban || null,
+      bank_connection: companyDetails.bank_connection || null,
+      header1: residentialCompanyDetails.header1 || null,
+      header2: residentialCompanyDetails.header2 || null,
+      header3: residentialCompanyDetails.header3 || null,
+      header4: residentialCompanyDetails.header4 || null,
+      residential_company_name: residentialCompanyDetails.residential_company_name || null,
+      residential_company_address: residentialCompanyDetails.residential_company_address || null,
+      residential_city: residentialCompanyDetails.residential_city || null,
+      residential_postal_code: residentialCompanyDetails.residential_postal_code || null,
+      residential_company_ico: residentialCompanyDetails.ico || null,
+      residential_company_dic: residentialCompanyDetails.dic || null,
+      residential_company_ic_dph: residentialCompanyDetails.residential_company_ic_dph || null,
+      residential_company_iban: residentialCompanyDetails.iban || null,
+      residential_bank_connection: residentialCompanyDetails.bank_connection || null,
+      description_above_services: descriptionAboveServices || null,
+      description_services: descriptionServices || null,
+      invoice_number: invoiceNumber || null,
+      issue_date: issueDate || null,
+      payment_date: paymentDate || null,
+      due_date: dueDate || null,
+      billing_month: billingMonthNumber,
+      status: status,
+    };
+    const servicesData = services.map((s) => ({
+      name: s.name,
+      quantity: parseInt(s.quantity, 10),
+      price: parseFloat(s.price),
+    }));
+    const dataToSend = { ...invoiceData, services: servicesData };
+    try {
+      await updateInvoiceAndSyncToMonthly(id, dataToSend);
+      toast.success('Faktúra upravená a zmeny prekopírované do mesačnej faktúry');
+      navigate('/invoices', { state: location.state });
+    } catch (error) {
+      console.error('Error saving and syncing to monthly:', error);
+      toast.error('Chyba pri ukladaní alebo prekopírovaní do mesačnej faktúry');
     }
   };
 
@@ -883,25 +935,8 @@ const InvoiceDetail = () => {
               </div>
             </div>
 
-            {/* Voliteľne: prekopírovať zmeny do mesačnej faktúry */}
-            {idMonthlyInvoice && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={syncToMonthlyInvoice}
-                    onChange={(e) => setSyncToMonthlyInvoice(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-700">
-                    Prekopírovať zmeny do príslušnej mesačnej faktúry (šablóny)
-                  </span>
-                </label>
-              </div>
-            )}
-
             {/* Form Actions */}
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <button
                 type="button"
                 className="bg-gray-300 text-black py-2 px-4 rounded-md hover:bg-gray-400"
@@ -909,12 +944,23 @@ const InvoiceDetail = () => {
               >
                 Zavrieť
               </button>
-              <button
-                type="submit"
-                className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300"
-              >
-                Upraviť
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300"
+                >
+                  Uložiť
+                </button>
+                {idMonthlyInvoice && (
+                  <button
+                    type="button"
+                    className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300"
+                    onClick={handleSaveAndSyncToMonthly}
+                  >
+                    Uložiť a zmeniť v mesačnej faktúre
+                  </button>
+                )}
+              </div>
             </div>
           </form>
         </div>

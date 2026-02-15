@@ -203,6 +203,56 @@ exports.updateInvoice = async (req, res) => {
   }
 };
 
+/** Uloží jednorazovú faktúru a prekopíruje zmeny do príslušnej mesačnej šablóny (ak má id_monthly_invoice). */
+exports.updateInvoiceAndSyncToMonthly = async (req, res) => {
+  try {
+    const { services, ...invoiceData } = req.body;
+    const invoice = await Invoice.findByPk(req.params.id);
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    invoice.set(invoiceData);
+    await invoice.save();
+
+    if (services && Array.isArray(services)) {
+      await Service.destroy({ where: { invoice_id: invoice.id } });
+      const servicesData = services.map((s) => ({ ...s, invoice_id: invoice.id }));
+      await Service.bulkCreate(servicesData);
+    }
+
+    if (invoice.id_monthly_invoice) {
+      const monthly = await MonthlyInvoice.findByPk(invoice.id_monthly_invoice);
+      if (monthly) {
+        const updates = {};
+        for (const key of SHARED_INVOICE_MONTHLY_FIELDS) {
+          if (invoice.get(key) !== undefined) updates[key] = invoice.get(key);
+        }
+        await monthly.update(updates);
+        const servicesList = services && Array.isArray(services) ? services : [];
+        await ServicePlanned.destroy({ where: { id_invoice_monthly_invoices: monthly.id } });
+        if (servicesList.length > 0) {
+          await ServicePlanned.bulkCreate(servicesList.map((s) => ({
+            id_invoice_monthly_invoices: monthly.id,
+            name: s.name,
+            quantity: parseInt(s.quantity, 10) || 1,
+            price: parseFloat(s.price) || 0,
+          })));
+        }
+      }
+    }
+
+    const updatedInvoice = await Invoice.findByPk(invoice.id, {
+      include: [{ model: Service, as: 'services' }],
+    });
+    res.status(200).json(updatedInvoice);
+  } catch (error) {
+    console.error('Error updating invoice and syncing to monthly:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 exports.generateMonthlyInvoices = async (req, res) => {
   try {
     const { issue_date, due_date, billing_month, payment_date, status } = req.body;

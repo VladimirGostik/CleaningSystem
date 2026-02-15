@@ -33,9 +33,20 @@ const CompanyDashboard = () => {
   const fetchStatistics = useCallback(async () => {
     try {
       const stats = await getInvoiceStatistics(fromDate, toDate);
-      setStatistics(stats);
+      setStatistics({
+        totalRevenue: stats?.totalRevenue ?? '0.00',
+        totalInvoicesCount: stats?.totalInvoicesCount ?? 0,
+        unpaidInvoicesCount: stats?.unpaidInvoicesCount ?? 0,
+        monthlyRevenue: stats?.monthlyRevenue ?? '0.00',
+      });
     } catch (error) {
       console.error('Error fetching statistics:', error);
+      setStatistics({
+        totalRevenue: '0.00',
+        totalInvoicesCount: 0,
+        unpaidInvoicesCount: 0,
+        monthlyRevenue: '0.00',
+      });
     }
   }, [fromDate, toDate]);
 
@@ -242,7 +253,7 @@ const CompanyDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-100 text-sm font-medium mb-1">Obrat za obdobie</p>
-                <p className="text-3xl font-bold">{parseFloat(statistics.totalRevenue).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p>
+                <p className="text-3xl font-bold">{(parseFloat(statistics.totalRevenue) || 0).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p>
               </div>
               <div className="bg-white bg-opacity-20 rounded-full p-4">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,7 +267,7 @@ const CompanyDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-100 text-sm font-medium mb-1">Počet vystavených faktúr</p>
-                <p className="text-3xl font-bold">{statistics.totalInvoicesCount}</p>
+                <p className="text-3xl font-bold">{statistics.totalInvoicesCount ?? 0}</p>
               </div>
               <div className="bg-white bg-opacity-20 rounded-full p-4">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,7 +281,7 @@ const CompanyDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-red-100 text-sm font-medium mb-1">Počet neuhradených faktúr</p>
-                <p className="text-3xl font-bold">{statistics.unpaidInvoicesCount}</p>
+                <p className="text-3xl font-bold">{statistics.unpaidInvoicesCount ?? 0}</p>
               </div>
               <div className="bg-white bg-opacity-20 rounded-full p-4">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -284,7 +295,7 @@ const CompanyDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-100 text-sm font-medium mb-1">Mesačný obrat</p>
-                <p className="text-3xl font-bold">{parseFloat(statistics.monthlyRevenue || '0.00').toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p>
+                <p className="text-3xl font-bold">{(parseFloat(statistics.monthlyRevenue) || 0).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p>
               </div>
               <div className="bg-white bg-opacity-20 rounded-full p-4">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
