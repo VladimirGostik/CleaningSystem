@@ -63,8 +63,11 @@ sequelize.authenticate()
   .then(() => console.log('Connected to PostgreSQL'))
   .catch(err => console.error('Unable to connect to PostgreSQL:', err));
 
-// sync({ alter: true }) pridá nové stĺpce do existujúcich tabuliek (inak by GET /invoices zlyhal)
-sequelize.sync({ alter: true })
+// Na Heroku/produkcii sync bez alter (alter môže spadnúť). Lokálne môžeš mať alter: true.
+const isProduction = process.env.NODE_ENV === 'production';
+const syncOptions = isProduction ? {} : { alter: true };
+
+sequelize.sync(syncOptions)
   .then(() => {
     console.log('Database synchronized');
     createAdminIfNotExists();
@@ -75,5 +78,6 @@ sequelize.sync({ alter: true })
   })
   .catch(err => {
     console.error('Error synchronizing database:', err);
+    console.error(err.stack);
     process.exit(1);
   });
