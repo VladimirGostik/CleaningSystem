@@ -656,13 +656,8 @@ const Invoices = () => {
           return parseInt(digits || '0', 10);
         };
 
-        // Zoradiť faktúry podľa bytového podniku a potom podľa čísla faktúry
-        invoices.sort((a, b) => {
-          const residentialA = a.residential_company_name || '';
-          const residentialB = b.residential_company_name || '';
-          if (residentialA !== residentialB) return residentialA.localeCompare(residentialB);
-          return getInvoiceSortKey(a) - getInvoiceSortKey(b);
-        });
+        // Zoradiť faktúry globálne podľa čísla faktúry (1, 2, 3…) – poradie skupín potom bude podľa najnižšieho čísla u klienta
+        invoices.sort((a, b) => getInvoiceSortKey(a) - getInvoiceSortKey(b));
 
         // Získať mesiac a rok z faktúr
         // Skúsiť nájsť najčastejší mesiac/rok alebo použiť z prvej faktúry
@@ -758,8 +753,8 @@ const Invoices = () => {
           invoicesByResidential[residentialName].push(invoice);
         }
         
-        // Pridať faktúry zoskupené podľa residential company (názvy zoradené), v každej skupine zoradiť podľa čísla faktúry
-        const residentialCompanyNames = Object.keys(invoicesByResidential).sort();
+        // Poradie skupín = poradie prvého výskytu pri prechode zoradeným zoznamom (podľa čísla faktúry), t.j. klient s najnižším číslom hore
+        const residentialCompanyNames = Object.keys(invoicesByResidential);
         let isFirstGroup = true;
 
         for (const residentialName of residentialCompanyNames) {
