@@ -58,18 +58,16 @@ async function createAdminIfNotExists() {
   }
 }
 
-sequelize.sync().then(() => {
-  createAdminIfNotExists();
-});
-
 // ✅ Pripojenie k databáze
 sequelize.authenticate()
   .then(() => console.log('Connected to PostgreSQL'))
   .catch(err => console.error('Unable to connect to PostgreSQL:', err));
 
-sequelize.sync()
+// sync({ alter: true }) pridá nové stĺpce do existujúcich tabuliek (inak by GET /invoices zlyhal)
+sequelize.sync({ alter: true })
   .then(() => {
     console.log('Database synchronized');
+    createAdminIfNotExists();
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
@@ -77,4 +75,5 @@ sequelize.sync()
   })
   .catch(err => {
     console.error('Error synchronizing database:', err);
+    process.exit(1);
   });
