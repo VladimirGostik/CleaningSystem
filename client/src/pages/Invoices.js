@@ -648,18 +648,20 @@ const Invoices = () => {
       for (const companyId of Object.keys(invoicesByCompany)) {
         const { companyName, invoices } = invoicesByCompany[companyId];
         
-        // Zoradiť faktúry podľa residential_company_name a potom podľa čísla faktúry
+        // Pomocná funkcia na porovnanie čísla faktúry (podporuje 20250001 aj 00001/2026)
+        const getInvoiceSortKey = (inv) => {
+          const num = inv.invoice_number || '';
+          const digits = num.replace(/\D/g, '');
+          if (num.length >= 8 && /^\d{8}$/.test(num)) return parseInt(num.substring(4), 10);
+          return parseInt(digits || '0', 10);
+        };
+
+        // Zoradiť faktúry podľa bytového podniku a potom podľa čísla faktúry
         invoices.sort((a, b) => {
-          // Najprv podľa residential_company_name
           const residentialA = a.residential_company_name || '';
           const residentialB = b.residential_company_name || '';
-          if (residentialA !== residentialB) {
-            return residentialA.localeCompare(residentialB);
-          }
-          // Potom podľa čísla faktúry
-          const numA = parseInt(a.invoice_number?.replace(/\D/g, '') || '0');
-          const numB = parseInt(b.invoice_number?.replace(/\D/g, '') || '0');
-          return numA - numB;
+          if (residentialA !== residentialB) return residentialA.localeCompare(residentialB);
+          return getInvoiceSortKey(a) - getInvoiceSortKey(b);
         });
 
         // Získať mesiac a rok z faktúr
@@ -756,23 +758,24 @@ const Invoices = () => {
           invoicesByResidential[residentialName].push(invoice);
         }
         
-        // Pridať faktúry zoskupené podľa residential company
+        // Pridať faktúry zoskupené podľa residential company (názvy zoradené), v každej skupine zoradiť podľa čísla faktúry
         const residentialCompanyNames = Object.keys(invoicesByResidential).sort();
         let isFirstGroup = true;
-        
+
         for (const residentialName of residentialCompanyNames) {
-          const groupInvoices = invoicesByResidential[residentialName];
-          
+          const groupInvoices = [...(invoicesByResidential[residentialName] || [])];
+          groupInvoices.sort((a, b) => getInvoiceSortKey(a) - getInvoiceSortKey(b));
+
           // Pridať prázdny riadok pred každou skupinou (okrem prvej)
           if (!isFirstGroup) {
             excelData.push([]);
           }
           isFirstGroup = false;
-          
-          // Pridať názov residential company
-          excelData.push([residentialName, '', '', '']);
-          
-          // Pridať faktúry pre túto residential company
+
+          // Pridať názov residential company (do druhého stĺpca)
+          excelData.push(['', residentialName, '', '']);
+
+          // Pridať faktúry pre túto residential company (už zoradené podľa čísla)
           for (const invoice of groupInvoices) {
             // Vypočítať celkovú sumu
             const totalPrice = (invoice.services || []).reduce((acc, service) => {
@@ -807,7 +810,11 @@ const Invoices = () => {
         
         // Vytvoriť worksheet
         const worksheet = XLSX.utils.aoa_to_sheet(excelData);
-        
+
+        // Zlúčiť všetky 4 bunky v prvom riadku (názov firmy + mesiac/rok)
+        worksheet['!merges'] = worksheet['!merges'] || [];
+        worksheet['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } });
+
         // Nastaviť šírku stĺpcov
         worksheet['!cols'] = [
           { wch: 12 }, // Č. faktúry
@@ -815,12 +822,12 @@ const Invoices = () => {
           { wch: 12 }, // Suma
           { wch: 12 }, // Vyplatené
         ];
-        
-        // Formátovanie hlavičky (prvý riadok) - hlavná firma väčšia
+
+        // Formátovanie hlavičky (prvý riadok) – názov firmy + mesiac veľký, hrubý, na stred
         if (worksheet['A1']) {
           worksheet['A1'].s = {
             font: { bold: true, sz: 18 },
-            alignment: { horizontal: 'left' }
+            alignment: { horizontal: 'center', vertical: 'center' }
           };
         }
         
@@ -846,9 +853,9 @@ const Invoices = () => {
             currentRow++;
           }
           
-          // Riadok s názvom residential company
+          // Riadok s názvom residential company (druhý stĺpec, hrubým písmom)
           currentRow++;
-          const nameCell = `A${currentRow}`;
+          const nameCell = `B${currentRow}`;
           if (worksheet[nameCell]) {
             worksheet[nameCell].s = {
               font: { bold: true, sz: 14 },
