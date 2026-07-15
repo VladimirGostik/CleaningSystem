@@ -12,6 +12,7 @@ import InvoiceFilter from '../components/InvoiceFilter'; // Import the filter co
 import MarkAsPaidModal from '../modals/MarkAsPaidModal'; // Import the MarkAsPaidModal
 import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Import BulkInvoiceDocument
 import { pdf } from '@react-pdf/renderer'; // Import the pdf function
+import { exportInvoicesToExcel } from '../utils/exportInvoicesToExcel';
 import { 
   getInvoices, 
   addInvoice, 
@@ -326,6 +327,22 @@ const Invoices = () => {
     }
   };
 
+  const handleBulkExportExcel = () => {
+    if (selectedInvoiceIds.length === 0) {
+      toast.warn('Žiadne faktúry na export');
+      return;
+    }
+
+    try {
+      const selectedInvoices = allInvoices.filter(invoice => selectedInvoiceIds.includes(invoice.id));
+      exportInvoicesToExcel(selectedInvoices);
+      toast.success('Excel export úspešne stiahnutý');
+    } catch (error) {
+      console.error('Error exporting invoices to Excel:', error);
+      toast.error('Chyba pri exporte do Excelu');
+    }
+  };
+
   // Pagination Logic
   const indexOfLastInvoice = currentPage * invoicesPerPage;
   const indexOfFirstInvoice = indexOfLastInvoice - invoicesPerPage;
@@ -444,6 +461,12 @@ const Invoices = () => {
                 onClick={handleBulkDownload}
               >
                 Stiahnuť PDF
+              </button>
+              <button
+                className="bg-teal-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-teal-700 transition duration-300"
+                onClick={handleBulkExportExcel}
+              >
+                Export Excel
               </button>
               <button
                 className="bg-red-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-red-700 transition duration-300"
