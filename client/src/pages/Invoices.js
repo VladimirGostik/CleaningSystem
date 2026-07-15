@@ -19,6 +19,7 @@ import * as XLSX from 'xlsx'; // Import xlsx for Excel export
 import QRCode from 'qrcode'; // Import QRCode library
 import { encode, PaymentOptions, CurrencyCode } from 'bysquare'; // Import BySquare library
 import { getResidentialCompanyById } from '../services/companyService';
+import { exportInvoicesToExcel } from '../utils/exportInvoicesToExcel';
 import { textContains } from '../utils/textUtils';
 import { 
   getInvoices, 
@@ -614,6 +615,22 @@ const Invoices = () => {
     }
   };
 
+  const handleBulkExportExcelDetailed = () => {
+    if (selectedInvoiceIds.length === 0) {
+      toast.warn('Žiadne faktúry na export');
+      return;
+    }
+
+    try {
+      const selectedInvoices = allInvoices.filter(invoice => selectedInvoiceIds.includes(invoice.id));
+      exportInvoicesToExcel(selectedInvoices);
+      toast.success('Detailný Excel export úspešne stiahnutý');
+    } catch (error) {
+      console.error('Error exporting invoices to Excel:', error);
+      toast.error('Chyba pri exporte do Excelu');
+    }
+  };
+
   const handleBulkExportExcel = async () => {
     if (selectedInvoiceIds.length === 0) {
       toast.warn('Žiadne faktúry na export');
@@ -1075,6 +1092,12 @@ const Invoices = () => {
                 onClick={handleBulkExportExcel}
               >
                 Export Excel
+              </button>
+              <button
+                className="bg-cyan-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-cyan-700 transition duration-300"
+                onClick={handleBulkExportExcelDetailed}
+              >
+                Export Excel (detail)
               </button>
               <button
                 className="bg-red-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-red-700 transition duration-300"
