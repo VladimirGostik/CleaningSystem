@@ -14,6 +14,7 @@ import InvoiceFilter from '../components/InvoiceFilter'; // Import the filter co
 import MarkAsPaidModal from '../modals/MarkAsPaidModal'; // Import the MarkAsPaidModal
 import BulkEditInvoiceDatesModal from '../modals/BulkEditInvoiceDatesModal'; // Import BulkEditInvoiceDatesModal
 import BulkInvoiceDocument from '../components/BulkInvoiceDocument'; // Import BulkInvoiceDocument
+import BulkInvoiceDocumentOld from '../components/BulkInvoiceDocumentOld'; // Starý formát faktúry (2025, bez QR kódu)
 import { pdf } from '@react-pdf/renderer'; // Import the pdf function
 import * as XLSX from 'xlsx'; // Import xlsx for Excel export
 import QRCode from 'qrcode'; // Import QRCode library
@@ -465,12 +466,28 @@ const Invoices = () => {
     }
   };
 
-  const handleBulkDownload = async () => {
+  // useOldFormat = true -> faktúry sa vygenerujú v starom formáte z roku 2025
+  // (bez QR kódu a bez variabilného symbolu), na dotlač starých faktúr.
+  const handleBulkDownload = async (useOldFormat = false) => {
     if (selectedInvoiceIds.length === 0) {
       toast.warn('Žiadne faktúry na stiahnutie');
       return;
     }
-  
+
+    const DocumentComponent = useOldFormat ? BulkInvoiceDocumentOld : BulkInvoiceDocument;
+    const fileNameSuffix = useOldFormat ? '_stary_format' : '';
+
+    // V starom formáte QR kód neexistoval, tak ho vôbec negenerujeme.
+    const prepareInvoices = async (invoices) => {
+      if (useOldFormat) return invoices;
+      return Promise.all(
+        invoices.map(async (invoice) => {
+          const qrCode = await generateQRCodeForInvoice(invoice);
+          return { ...invoice, qrCode };
+        })
+      );
+    };
+
     try {
       setIsGeneratingPDF(true);
       const selectedInvoices = allInvoices.filter(invoice => selectedInvoiceIds.includes(invoice.id));
@@ -544,21 +561,16 @@ const Invoices = () => {
         const { companyName, invoices } = invoicesByCompany[companyId];
         const [month, year] = getMonthYear(invoices);
         
-        // Generujeme QR kódy pre všetky faktúry
-        const invoicesWithQR = await Promise.all(
-          invoices.map(async (invoice) => {
-            const qrCode = await generateQRCodeForInvoice(invoice);
-            return { ...invoice, qrCode };
-          })
-        );
-        
+        // Generujeme QR kódy pre všetky faktúry (v starom formáte sa preskočí)
+        const preparedInvoices = await prepareInvoices(invoices);
+
         // Sanitize company name for filename
         const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
-        const fileName = month && year 
-          ? `${sanitizedCompanyName}_${month}_${year}.pdf`
-          : `${sanitizedCompanyName}.pdf`;
-        
-        const blob = await pdf(<BulkInvoiceDocument invoices={invoicesWithQR} />).toBlob();
+        const fileName = month && year
+          ? `${sanitizedCompanyName}_${month}_${year}${fileNameSuffix}.pdf`
+          : `${sanitizedCompanyName}${fileNameSuffix}.pdf`;
+
+        const blob = await pdf(<DocumentComponent invoices={preparedInvoices} />).toBlob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -566,7 +578,7 @@ const Invoices = () => {
         document.body.appendChild(link);
         link.click();
         link.parentNode.removeChild(link);
-        toast.success('PDF úspešne stiahnutý');
+        toast.success(useOldFormat ? 'PDF (starý formát) úspešne stiahnutý' : 'PDF úspešne stiahnutý');
       } else {
         // Viac firiem - stiahnuť viacero PDF súborov
         const companyNames = [];
@@ -574,23 +586,18 @@ const Invoices = () => {
           const { companyName, invoices } = invoicesByCompany[companyId];
           const [month, year] = getMonthYear(invoices);
           
-          // Generujeme QR kódy pre všetky faktúry
-          const invoicesWithQR = await Promise.all(
-            invoices.map(async (invoice) => {
-              const qrCode = await generateQRCodeForInvoice(invoice);
-              return { ...invoice, qrCode };
-            })
-          );
-          
+          // Generujeme QR kódy pre všetky faktúry (v starom formáte sa preskočí)
+          const preparedInvoices = await prepareInvoices(invoices);
+
           // Sanitize company name for filename
           const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
-          const fileName = month && year 
-            ? `${sanitizedCompanyName}_${month}_${year}.pdf`
-            : `${sanitizedCompanyName}.pdf`;
-          
+          const fileName = month && year
+            ? `${sanitizedCompanyName}_${month}_${year}${fileNameSuffix}.pdf`
+            : `${sanitizedCompanyName}${fileNameSuffix}.pdf`;
+
           companyNames.push(companyName);
-          
-          const blob = await pdf(<BulkInvoiceDocument invoices={invoicesWithQR} />).toBlob();
+
+          const blob = await pdf(<DocumentComponent invoices={preparedInvoices} />).toBlob();
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
@@ -603,7 +610,7 @@ const Invoices = () => {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
         
-        toast.success(`PDF úspešne stiahnuté (${companyNames.length} firiem: ${companyNames.join(', ')})`);
+        toast.success(`PDF${useOldFormat ? ' (starý formát)' : ''} úspešne stiahnuté (${companyNames.length} firiem: ${companyNames.join(', ')})`);
       }
       
       setShowBulkActions(false);
@@ -1083,9 +1090,16 @@ const Invoices = () => {
               </button>
               <button
                 className="bg-purple-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-purple-700 transition duration-300"
-                onClick={handleBulkDownload}
+                onClick={() => handleBulkDownload(false)}
               >
                 Stiahnuť PDF
+              </button>
+              <button
+                className="bg-indigo-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-indigo-700 transition duration-300"
+                onClick={() => handleBulkDownload(true)}
+                title="Vygeneruje faktúry v pôvodnom formáte z roku 2025 - bez QR kódu a bez variabilného symbolu"
+              >
+                Stiahnuť PDF (starý formát)
               </button>
               <button
                 className="bg-orange-600 text-white font-semibold px-3 py-1 rounded-md hover:bg-orange-700 transition duration-300"
