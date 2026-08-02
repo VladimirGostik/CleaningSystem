@@ -1,22 +1,24 @@
 // controllers/invoiceController.js
 const { Sequelize, Op } = require('sequelize');
 const { Invoice, MonthlyInvoice, Service, ServicePlanned, Company, Expense } = require('../models');
+const { annotateDuplicates, registerImport } = require('../services/importRegistry');
+const { SOURCE_PAYMENT } = require('../utils/transactionFingerprint');
 
 /** Vytvorí záznam výdavku pre zaplatenú faktúru (bez duplicity podľa id_invoice alebo ntry_ref). */
 async function createExpenseForPaidInvoice(invoice, totalAmount, paymentDate, ntryRef) {
   if (!invoice || !invoice.id_company || totalAmount == null) return;
   if (ntryRef) {
     const existingByRef = await Expense.findOne({ where: { ntry_ref: ntryRef } });
-    if (existingByRef) return;
+    if (existingByRef) return existingByRef;
   }
   const existingByInvoice = await Expense.findOne({ where: { id_invoice: invoice.id } });
-  if (existingByInvoice) return;
+  if (existingByInvoice) return existingByInvoice;
   const price = parseFloat(totalAmount);
   const deductibility = 100;
   const finalPrice = price * (deductibility / 100);
   const paymentDateStr = typeof paymentDate === 'string' ? paymentDate.split('T')[0] : (paymentDate ? new Date(paymentDate).toISOString().split('T')[0] : null);
   if (!paymentDateStr) return;
-  await Expense.create({
+  return Expense.create({
     id_company: invoice.id_company,
     name: `Uhradená faktúra ${invoice.invoice_number || invoice.id}`,
     description: invoice.invoice_name ? `Faktúra: ${invoice.invoice_name}` : null,
@@ -30,6 +32,33 @@ async function createExpenseForPaidInvoice(invoice, totalAmount, paymentDate, nt
     ntry_ref: ntryRef || null,
   });
 }
+
+// Kontrola duplicít pred importom platieb (nič neukladá) - frontend si vie
+// duplicitné transakcie označiť ešte pred tým, než ich používateľ odošle.
+exports.checkTransactionDuplicates = async (req, res) => {
+  try {
+    const transactions = req.body.transactions;
+    if (!Array.isArray(transactions)) {
+      return res.status(400).json({ error: "'transactions' must be an array" });
+    }
+
+    const annotated = await annotateDuplicates(transactions, SOURCE_PAYMENT);
+    res.json({
+      results: annotated.map(({ index, fingerprint, duplicate, duplicateInFile, matchedBy, existing }) => ({
+        index,
+        fingerprint,
+        duplicate,
+        duplicateInFile,
+        matchedBy,
+        existing,
+      })),
+      duplicateCount: annotated.filter(a => a.duplicate).length,
+    });
+  } catch (error) {
+    console.error('Error checking transaction duplicates:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
 
 // Vytvorenie novej faktúry s pridruženými službami
 exports.createInvoice = async (req, res) => {
@@ -507,14 +536,33 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
     const updatedInvoices = [];
     const unlinkedTransactions = [];
     const wrongPriceTransactions = []; // Pre transakcie s nesúladom ceny
+    const skippedDuplicates = []; // Transakcie, ktoré sme už raz spracovali
 
-    for (const tx of transactions) {
-      // Ak má transakcia NtryRef a tento záznam už máme vo výdavkoch, preskočíme (žiadna duplicita)
-      const ntryRef = tx.ntryRef || tx.ntry_ref || null;
-      if (ntryRef) {
-        const existingExpense = await Expense.findOne({ where: { ntry_ref: ntryRef } });
-        if (existingExpense) {
-          console.log(`Transakcia s NtryRef ${ntryRef} už bola spracovaná, preskakujem.`);
+    // Doplníme ku každej transakcii odtlačok a info, či ju už poznáme
+    const annotated = await annotateDuplicates(transactions, SOURCE_PAYMENT);
+
+    for (const item of annotated) {
+      const tx = item.raw;
+      const ntryRef = item.ntry_ref;
+      const force = tx.force === true; // používateľ vedome potvrdil, že to duplicita nie je
+
+      if (!force) {
+        // Duplicita buď podľa registra importov, alebo (staršie dáta) podľa výdavku s rovnakým NtryRef
+        let isDuplicate = item.duplicate;
+        if (!isDuplicate && ntryRef) {
+          const existingExpense = await Expense.findOne({ where: { ntry_ref: ntryRef } });
+          isDuplicate = Boolean(existingExpense);
+        }
+        if (isDuplicate) {
+          console.log(`Transakcia ${ntryRef || item.fingerprint} už bola spracovaná, preskakujem.`);
+          skippedDuplicates.push({
+            ...tx,
+            reason: item.duplicateInFile
+              ? 'Duplicita v rámci nahratého súboru'
+              : 'Transakcia už bola spracovaná',
+            matchedBy: item.matchedBy,
+            existing: item.existing,
+          });
           continue;
         }
       }
@@ -592,9 +640,17 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
         continue;
       }
 
-      // Ak je faktúra už zaplatená, preskočíme ju
+      // Ak je faktúra už zaplatená, preskočíme ju - transakciu si ale zapíšeme
+      // do registra, nech ju pri ďalšom nahratí výpisu vieme označiť ako spracovanú
       if (invoice.status === 'paid') {
         console.log(`Faktúra ${tx.vs} už bola zaplatená.`);
+        await registerImport(item, { id_invoice: invoice.id, force });
+        skippedDuplicates.push({
+          ...tx,
+          reason: 'Faktúra už bola označená ako zaplatená',
+          matchedBy: item.matchedBy,
+          existing: item.existing,
+        });
         continue;
       }
 
@@ -623,12 +679,23 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
       await invoice.save();
       updatedInvoices.push(invoice);
       // Uložíme výdavok (zaplatená transakcia) s odkazom na faktúru a NtryRef proti duplicitám
+      let createdExpense = null;
       try {
-        await createExpenseForPaidInvoice(invoice, parseFloat(computedSum), tx.paymentDate, ntryRef);
+        createdExpense = await createExpenseForPaidInvoice(invoice, parseFloat(computedSum), tx.paymentDate, ntryRef);
       } catch (expErr) {
         console.error('Chyba pri vytváraní výdavku pre faktúru:', expErr);
       }
+      // Transakciu zapíšeme do registra, aby sa pri ďalšom importe nespracovala znovu
+      await registerImport(item, {
+        id_invoice: invoice.id,
+        id_expense: createdExpense ? createdExpense.id : null,
+        force,
+      });
       console.log(`Faktúra ${tx.vs} bola úspešne aktualizovaná.`);
+    }
+
+    if (skippedDuplicates.length > 0) {
+      console.log(`Import platieb: preskočených ${skippedDuplicates.length} už spracovaných transakcií.`);
     }
 
     res.status(200).json({
@@ -636,6 +703,7 @@ exports.updateInvoicesFromTransactions = async (req, res) => {
       updatedInvoices,
       unlinkedTransactions,
       wrongPriceTransactions,
+      skippedDuplicates,
     });
   } catch (error) {
     console.error("Error updating invoices from transactions:", error);

@@ -104,18 +104,11 @@ const Expenses = () => {
     }
   };
 
-  const handleImportSubmit = async (importedExpenses) => {
-    // Predpokladáme, že importedExpenses je pole objektov s údajmi z parsovaného súboru
-    try {
-      // Môžete vytvoriť dávkové volanie backendu alebo iterovať a volať createExpense pre každý výdavok
-      for (const expenseData of importedExpenses) {
-        await createExpense(expenseData);
-      }
-      setShowImportModal(false);
-      fetchExpenses();
-    } catch (err) {
-      console.error('Chyba pri importovaní výdavkov:', err);
-    }
+  // Výdavky už uložil endpoint /expenses/import (aj s kontrolou duplicít),
+  // takže tu ich NEVYTVÁRAME znovu - len obnovíme zoznam.
+  const handleImportSubmit = () => {
+    setShowImportModal(false);
+    fetchExpenses();
   };
 
   // Filterovanie výdavkov podľa vybranej firmy a vyhľadávacieho termínu v názve

@@ -67,9 +67,37 @@ sequelize.authenticate()
 const isProduction = process.env.NODE_ENV === 'production';
 const syncOptions = isProduction ? {} : { alter: true };
 
+// sequelize.sync() chýbajúce TABUĽKY vytvorí, ale do existujúcich tabuliek
+// nedoplní nové STĹPCE. Preto po synchronizácii dobehnú idempotentné ALTERy
+// zo scripts/add-missing-columns.sql (všetky s IF NOT EXISTS).
+async function addMissingColumns() {
+  const fs = require('fs');
+  const sqlPath = path.join(__dirname, 'scripts', 'add-missing-columns.sql');
+  if (!fs.existsSync(sqlPath)) return;
+
+  const statements = fs.readFileSync(sqlPath, 'utf8')
+    .split('\n')
+    .filter(line => !line.trim().startsWith('--'))
+    .join('\n')
+    .split(';')
+    .map(stmt => stmt.trim())
+    .filter(Boolean);
+
+  for (const statement of statements) {
+    try {
+      await sequelize.query(statement);
+    } catch (err) {
+      // Chýbajúci stĺpec nesmie zhodiť štart servera - len to nahlásime
+      console.warn('Migrácia stĺpcov - preskočené:', err.message);
+    }
+  }
+  console.log(`Kontrola chýbajúcich stĺpcov dokončená (${statements.length} príkazov)`);
+}
+
 sequelize.sync(syncOptions)
-  .then(() => {
+  .then(async () => {
     console.log('Database synchronized');
+    await addMissingColumns();
     createAdminIfNotExists();
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {

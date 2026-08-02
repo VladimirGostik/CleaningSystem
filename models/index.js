@@ -11,6 +11,7 @@ db.Service = require('./Service')(sequelize, Sequelize.DataTypes);
 db.MonthlyInvoice = require('./MonthlyInvoice')(sequelize, Sequelize.DataTypes);
 db.ServicePlanned = require('./ServicePlanned')(sequelize, Sequelize.DataTypes);
 db.Expense = require('./Expense')(sequelize, Sequelize.DataTypes);
+db.ImportedTransaction = require('./ImportedTransaction')(sequelize, Sequelize.DataTypes);
 
 // Pridaj Sequelize inštanciu do db objektu
 db.sequelize = sequelize;

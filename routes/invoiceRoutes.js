@@ -16,6 +16,9 @@ router.post('/generate-monthly-for-company', invoiceController.generateMonthlyIn
 // Bulk Actions Routes - musia byť definované pred dynamickou routou
 router.put('/bulk-update-status', invoiceController.bulkUpdateStatus);
 
+// Kontrola duplicít pred importom platieb (nič neukladá)
+router.post('/transactions/check-duplicates', invoiceController.checkTransactionDuplicates);
+
 router.put('/update-from-transactions', invoiceController.updateInvoicesFromTransactions);
 
 router.post('/bulk-delete', invoiceController.bulkDeleteInvoices);

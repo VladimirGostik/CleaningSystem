@@ -1,7 +1,19 @@
 // src/modals/ImportExpensesModal.js
-import React, { useState, useEffect } from 'react';
-import { sendTransactionsToBackend, InvoicesMarkAsPaid } from '../services/invoices';
+import React, { useState, useEffect, useCallback } from 'react';
+import { sendTransactionsToBackend, InvoicesMarkAsPaid, checkTransactionDuplicates } from '../services/invoices';
 import { toast } from 'react-toastify';
+
+// Pomocné polia, ktoré si držíme len v UI - do backendu ich neposielame
+const stripUiFields = (tx) => {
+  const { _duplicate, _duplicateInFile, _matchedBy, _existing, _import, ...rest } = tx;
+  return rest;
+};
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('sk-SK');
+};
 
 const ImportExpensesModal = ({ closeModal, onImport }) => {
   const [loading, setLoading] = useState(false);
@@ -10,6 +22,35 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
   const [wrongPrice, setWrongPrice] = useState([]);
   const [loadedFromCache, setLoadedFromCache] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+
+  // Overí na backende, ktoré transakcie sme už raz spracovali.
+  // Duplicity sa štandardne na spracovanie neoznačia.
+  const runDuplicateCheck = useCallback(async (txs) => {
+    if (!txs || txs.length === 0) return txs || [];
+    setCheckingDuplicates(true);
+    try {
+      const data = await checkTransactionDuplicates(txs.map(stripUiFields));
+      const results = data?.results || [];
+      if (!data) {
+        // Kontrola nedostupná - necháme všetko označené, backend duplicity aj tak zachytí
+        return txs.map(tx => ({ ...tx, _import: tx._import !== false }));
+      }
+      return txs.map((tx, index) => {
+        const result = results[index] || {};
+        return {
+          ...tx,
+          _duplicate: Boolean(result.duplicate),
+          _duplicateInFile: Boolean(result.duplicateInFile),
+          _matchedBy: result.matchedBy || null,
+          _existing: result.existing || null,
+          _import: !result.duplicate,
+        };
+      });
+    } finally {
+      setCheckingDuplicates(false);
+    }
+  }, []);
 
   // Načítanie dát z cache pri otvorení modalu
   useEffect(() => {
@@ -17,8 +58,11 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
     const cachedWrong = localStorage.getItem('wrongPriceTransactions');
     if (cached && cached !== 'undefined') {
       try {
-        setTransactions(JSON.parse(cached));
+        const parsed = JSON.parse(cached);
+        setTransactions(parsed);
         setLoadedFromCache(true);
+        // Aj pri načítaní z cache overíme duplicity - medzitým sa mohlo importovať
+        runDuplicateCheck(parsed).then(setTransactions);
       } catch (err) {
         console.error('Chyba pri parsovaní cache (importedTransactions):', err);
         setTransactions([]);
@@ -32,7 +76,7 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
         setWrongPrice([]);
       }
     }
-  }, []);
+  }, [runDuplicateCheck]);
 
   const parseTransaction = (ntry, ns) => {
     const cdtDbtInd = ntry.getElementsByTagNameNS(ns, 'CdtDbtInd')[0]?.textContent;
@@ -92,7 +136,7 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
     setLoading(true);
     setError(null);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const xmlText = e.target.result;
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
@@ -100,11 +144,19 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
       const parsedTransactions = Array.from(xmlDoc.getElementsByTagNameNS(ns, 'Ntry'))
         .map((ntry) => parseTransaction(ntry, ns))
         .filter(Boolean);
+
+      // Hneď po načítaní súboru zistíme, ktoré transakcie sme už spracovali
+      const checked = await runDuplicateCheck(parsedTransactions);
       // Uloženie importovaných transakcií do cache
-      localStorage.setItem('importedTransactions', JSON.stringify(parsedTransactions));
-      setTransactions(parsedTransactions);
+      localStorage.setItem('importedTransactions', JSON.stringify(checked));
+      setTransactions(checked);
       setLoadedFromCache(false);
       setLoading(false);
+
+      const duplicates = checked.filter(tx => tx._duplicate).length;
+      if (duplicates > 0) {
+        toast.info(`Načítaných ${checked.length} transakcií, z toho ${duplicates} už bolo spracovaných - tie sú odznačené.`);
+      }
     };
     reader.onerror = (e) => {
       console.error('Chyba pri načítaní súboru:', e);
@@ -148,13 +200,39 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
     }
   };
 
+  // Prepnutie, či sa daná transakcia má spracovať (duplicitu vie používateľ potvrdiť ručne)
+  const handleToggleImport = (indexToToggle) => {
+    const updated = transactions.map((tx, index) =>
+      index === indexToToggle ? { ...tx, _import: !tx._import } : tx
+    );
+    setTransactions(updated);
+    localStorage.setItem('importedTransactions', JSON.stringify(updated));
+  };
+
   const handleImportClick = async () => {
-    if (transactions.length === 0) return;
+    const toImport = transactions.filter(tx => tx._import !== false);
+    if (toImport.length === 0) {
+      toast.warn('Nie je označená žiadna transakcia na spracovanie.');
+      return;
+    }
     setLoading(true);
     try {
-      const response = await sendTransactionsToBackend(transactions);
+      const payload = toImport.map(tx => ({
+        ...stripUiFields(tx),
+        // Označená duplicita = používateľ ju vedome potvrdil
+        force: Boolean(tx._duplicate),
+      }));
+      const response = await sendTransactionsToBackend(payload);
       const unlinked = response?.unlinkedTransactions || [];
       const wrong = response?.wrongPriceTransactions || [];
+      const skipped = response?.skippedDuplicates || [];
+      const updatedCount = (response?.updatedInvoices || []).length;
+
+      toast.success(
+        skipped.length > 0
+          ? `Spracovaných ${updatedCount} platieb, preskočených ${skipped.length} už spracovaných transakcií.`
+          : `Spracovaných ${updatedCount} platieb.`
+      );
       localStorage.setItem('importedTransactions', JSON.stringify(unlinked));
       localStorage.setItem('wrongPriceTransactions', JSON.stringify(wrong));
       setTransactions(unlinked);
@@ -168,6 +246,9 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
       closeModal();
     }
   };
+
+  const duplicateCount = transactions.filter(tx => tx._duplicate).length;
+  const selectedCount = transactions.filter(tx => tx._import !== false).length;
 
   return (
     <div style={modalOverlayStyle}>
@@ -197,27 +278,65 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
               <div style={{ marginBottom: '1rem', width: '100%' }}>
                 <h4 style={{ textAlign: 'center' }}>
                   Nepriradené transakcie ({transactions.length})
+                  {checkingDuplicates && <span style={cacheLabelStyle}> kontrolujem duplicity…</span>}
+                  {!checkingDuplicates && duplicateCount > 0 && (
+                    <span style={cacheLabelStyle}> z toho {duplicateCount} už spracovaných</span>
+                  )}
                 </h4>
                 <div style={tableContainerStyle}>
                   <table style={tableStyle}>
                     <thead style={theadStyle}>
                       <tr>
+                        <th style={thStyle} title="Spracovať túto transakciu">Imp.</th>
                         <th style={thStyle}>Meno</th>
                         <th style={thStyle}>Popis</th>
                         <th style={thStyle}>Suma (€)</th>
                         <th style={thStyle}>VS</th>
                         <th style={thStyle}>Dátum</th>
+                        <th style={thStyle}>Stav</th>
                         <th style={thStyle}>Akcia</th>
                       </tr>
                     </thead>
                     <tbody style={tbodyStyle}>
                       {transactions.map((tx, index) => (
-                        <tr key={index} style={trStyle}>
+                        <tr
+                          key={index}
+                          style={{
+                            ...trStyle,
+                            // Duplicity vizuálne odlíšime, nech ich používateľ hneď vidí
+                            backgroundColor: tx._duplicate ? '#fdecea' : undefined,
+                            opacity: tx._import === false ? 0.65 : 1,
+                          }}
+                        >
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={tx._import !== false}
+                              onChange={() => handleToggleImport(index)}
+                              title={tx._duplicate
+                                ? 'Duplicita - zaškrtnutím ju spracuješ napriek tomu'
+                                : 'Spracovať túto transakciu'}
+                            />
+                          </td>
                           <td style={tdStyle}>{tx.senderName || '-'}</td>
                           <td style={tdStyle}>{tx.description || '-'}</td>
                           <td style={tdStyle}>{tx.amount} €</td>
                           <td style={tdStyle}>{tx.vs || '-'}</td>
                           <td style={tdStyle}>{tx.paymentDate}</td>
+                          <td style={{ ...tdStyle, fontSize: '0.8rem' }}>
+                            {tx._duplicate ? (
+                              <span style={duplicateBadgeStyle}>
+                                {tx._duplicateInFile
+                                  ? 'Duplicita v súbore'
+                                  : `Už spracované${tx._existing?.imported_at ? ` ${formatDate(tx._existing.imported_at)}` : ''}`}
+                                <span style={matchedByStyle}>
+                                  {tx._matchedBy === 'ntry_ref' ? ' (podľa NtryRef)' : ' (podľa odtlačku)'}
+                                </span>
+                              </span>
+                            ) : (
+                              <span style={newBadgeStyle}>Nová</span>
+                            )}
+                          </td>
                           <td style={tdStyle}>
                             <button
                               style={deleteButtonStyle}
@@ -287,8 +406,12 @@ const ImportExpensesModal = ({ closeModal, onImport }) => {
           </>
         )}
         <div style={buttonContainerStyle}>
-          <button onClick={handleImportClick} style={importButtonStyle}>
-            Importovať
+          <button
+            onClick={handleImportClick}
+            style={importButtonStyle}
+            disabled={loading || checkingDuplicates || selectedCount === 0}
+          >
+            {selectedCount > 0 ? `Importovať (${selectedCount})` : 'Importovať'}
           </button>
           <button onClick={closeModal} style={closeButtonStyle}>
             Zatvoriť
@@ -346,6 +469,24 @@ const headerStyle = {
   fontSize: '1.3rem',
   fontWeight: '600',
   color: '#333',
+};
+
+const duplicateBadgeStyle = {
+  display: 'inline-block',
+  color: '#c0392b',
+  fontWeight: 600,
+};
+
+const matchedByStyle = {
+  display: 'block',
+  color: '#8e6b6b',
+  fontWeight: 400,
+  fontSize: '0.7rem',
+};
+
+const newBadgeStyle = {
+  color: '#27ae60',
+  fontWeight: 600,
 };
 
 const cacheLabelStyle = {

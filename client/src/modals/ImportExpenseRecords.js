@@ -1,25 +1,71 @@
-import React, { useState, useEffect } from 'react';
-import { importExpenses } from '../services/expansesService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-toastify';
+import { importExpenses, checkImportDuplicates } from '../services/expansesService';
+
+// Pomocné polia, ktoré si držíme len v UI - do backendu ich neposielame
+const stripUiFields = (record) => {
+  const { _duplicate, _duplicateInFile, _matchedBy, _existing, _import, ...rest } = record;
+  return rest;
+};
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('sk-SK');
+};
 
 const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
   const [loading, setLoading] = useState(false);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [expenseRecords, setExpenseRecords] = useState([]);
   const [loadedFromCache, setLoadedFromCache] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+
+  // Overí na backende, ktoré záznamy už boli naimportované, a výsledok zapíše
+  // priamo do záznamov. Duplicity sa štandardne na import neoznačia.
+  const runDuplicateCheck = useCallback(async (records) => {
+    if (!records || records.length === 0) return records || [];
+    setCheckingDuplicates(true);
+    try {
+      const response = await checkImportDuplicates(records.map(stripUiFields));
+      const results = response?.data?.results || [];
+      return records.map((record, index) => {
+        const result = results[index] || {};
+        return {
+          ...record,
+          _duplicate: Boolean(result.duplicate),
+          _duplicateInFile: Boolean(result.duplicateInFile),
+          _matchedBy: result.matchedBy || null,
+          _existing: result.existing || null,
+          _import: !result.duplicate,
+        };
+      });
+    } catch (error) {
+      console.error('Chyba pri kontrole duplicít:', error);
+      toast.error('Nepodarilo sa overiť duplicity. Kontrola prebehne až pri samotnom importe.');
+      // Bez kontroly necháme všetko označené - backend duplicity aj tak zachytí
+      return records.map((record) => ({ ...record, _import: record._import !== false }));
+    } finally {
+      setCheckingDuplicates(false);
+    }
+  }, []);
 
   // Načítanie z cache pri otvorení modálu
   useEffect(() => {
     const cached = localStorage.getItem('importedExpenseRecords');
     if (cached && cached !== 'undefined') {
       try {
-        setExpenseRecords(JSON.parse(cached));
+        const parsed = JSON.parse(cached);
+        setExpenseRecords(parsed);
         setLoadedFromCache(true);
+        // Aj pri načítaní z cache overíme duplicity - medzitým sa mohlo importovať
+        runDuplicateCheck(parsed).then(setExpenseRecords);
       } catch (error) {
         console.error('Chyba pri parsovaní cache:', error);
         setExpenseRecords([]);
       }
     }
-  }, []);
+  }, [runDuplicateCheck]);
 
   const parseExpenseRecord = (ntry, ns, companies) => {
     const cdtDbtInd = ntry.getElementsByTagNameNS(ns, 'CdtDbtInd')[0]?.textContent;
@@ -73,8 +119,7 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
         // Predpokladáme, že IBAN v companies už má správny formát, napr. "SK02 0200 0000 0050 4715 7358"
         return (c.company_iban || '').trim() === formattedXmlIban;
       });
-      console.log(formattedXmlIban + " z companies "+ company.company_iban);
-      
+
       if (company) {
         id_company = company.id;
       }
@@ -89,6 +134,8 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
       deductibility: 100,
       start_date: paymentDate,
       ntry_ref,
+      // IBAN posielame kvôli rozpoznaniu duplicity pri výpisoch bez NtryRef
+      iban,
     };
   };
 
@@ -103,7 +150,7 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
     if (!selectedFile) return;
     setLoading(true);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const xmlText = e.target.result;
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
@@ -111,10 +158,18 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
       const parsedRecords = Array.from(xmlDoc.getElementsByTagNameNS(ns, 'Ntry'))
         .map(ntry => parseExpenseRecord(ntry, ns, companies))
         .filter(Boolean);
-      localStorage.setItem('importedExpenseRecords', JSON.stringify(parsedRecords));
-      setExpenseRecords(parsedRecords);
+
+      // Hneď po načítaní súboru zistíme, ktoré záznamy už v systéme sú
+      const checked = await runDuplicateCheck(parsedRecords);
+      localStorage.setItem('importedExpenseRecords', JSON.stringify(checked));
+      setExpenseRecords(checked);
       setLoadedFromCache(false);
       setLoading(false);
+
+      const duplicates = checked.filter(r => r._duplicate).length;
+      if (duplicates > 0) {
+        toast.info(`Načítaných ${checked.length} záznamov, z toho ${duplicates} už bolo naimportovaných - tie sú odznačené.`);
+      }
     };
     reader.onerror = (e) => {
       console.error('Chyba pri načítaní súboru:', e);
@@ -140,23 +195,55 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
     localStorage.setItem('importedExpenseRecords', JSON.stringify(updatedRecords));
   };
 
+  // Prepnutie, či sa daný riadok má importovať (duplicitu vie používateľ potvrdiť ručne)
+  const handleToggleImport = (indexToToggle) => {
+    const updated = expenseRecords.map((record, index) =>
+      index === indexToToggle ? { ...record, _import: !record._import } : record
+    );
+    setExpenseRecords(updated);
+    localStorage.setItem('importedExpenseRecords', JSON.stringify(updated));
+  };
+
   const handleImportClick = async () => {
-    if (expenseRecords.length === 0) return;
+    const toImport = expenseRecords.filter(record => record._import !== false);
+    if (toImport.length === 0) {
+      toast.warn('Nie je označený žiadny výdavok na import.');
+      return;
+    }
+
     setLoading(true);
     try {
-      console.log(expenseRecords);
-      const response = await importExpenses(expenseRecords);
+      const payload = toImport.map(record => ({
+        ...stripUiFields(record),
+        // Označená duplicita = používateľ ju vedome potvrdil, backend ju nemá preskočiť
+        force: Boolean(record._duplicate),
+      }));
+      const response = await importExpenses(payload);
+      const data = response?.data || {};
+      const imported = data.importedCount ?? (data.expenses || []).length;
+      const skipped = data.skippedDuplicates ?? 0;
+
+      toast.success(
+        skipped > 0
+          ? `Naimportovaných ${imported} výdavkov, preskočených ${skipped} duplicít.`
+          : `Naimportovaných ${imported} výdavkov.`
+      );
+
       if (onSubmit) {
-        onSubmit(response.expenses || []);
+        onSubmit(data.expenses || []);
       }
       localStorage.removeItem('importedExpenseRecords');
     } catch (error) {
       console.error('Chyba pri importe výdavkov:', error);
+      toast.error('Import výdavkov zlyhal.');
     } finally {
       setLoading(false);
       onClose();
     }
   };
+
+  const duplicateCount = expenseRecords.filter(record => record._duplicate).length;
+  const selectedCount = expenseRecords.filter(record => record._import !== false).length;
 
   return (
     <div style={modalOverlayStyle}>
@@ -171,6 +258,21 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
             Načítať výdavky zo súboru
           </button>
         </div>
+        {expenseRecords.length > 0 && (
+          <div style={summaryStyle}>
+            {checkingDuplicates ? (
+              <span>Kontrolujem duplicity…</span>
+            ) : (
+              <>
+                <span>Načítaných: <strong>{expenseRecords.length}</strong></span>
+                <span style={{ color: duplicateCount > 0 ? '#c0392b' : '#27ae60' }}>
+                  Duplicít: <strong>{duplicateCount}</strong>
+                </span>
+                <span>Na import označených: <strong>{selectedCount}</strong></span>
+              </>
+            )}
+          </div>
+        )}
         {loading ? (
           <div style={loadingStyle}>Načítavam...</div>
         ) : expenseRecords.length > 0 ? (
@@ -178,11 +280,13 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
             <table style={tableStyle}>
               <thead style={theadStyle}>
                 <tr>
-                  <th style={{ ...thStyle, width: '20%' }}>Názov</th>
-                  <th style={{ ...thStyle, width: '30%' }}>Popis</th>
-                  <th style={{ ...thStyle, width: '15%' }}>Suma (€)</th>
-                  <th style={{ ...thStyle, width: '8%' }}>Odpočítateľnosť</th>
-                  <th style={{ ...thStyle, width: '12%' }}>Dátum začiatku</th>
+                  <th style={{ ...thStyle, width: '4%' }} title="Importovať tento záznam">Imp.</th>
+                  <th style={{ ...thStyle, width: '17%' }}>Názov</th>
+                  <th style={{ ...thStyle, width: '23%' }}>Popis</th>
+                  <th style={{ ...thStyle, width: '10%' }}>Suma (€)</th>
+                  <th style={{ ...thStyle, width: '7%' }}>Odpočítateľnosť</th>
+                  <th style={{ ...thStyle, width: '10%' }}>Dátum začiatku</th>
+                  <th style={{ ...thStyle, width: '19%' }}>Stav</th>
                   <th style={{ ...thStyle, width: '10%' }}>Akcia</th>
                 </tr>
               </thead>
@@ -190,11 +294,24 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
                 {expenseRecords.map((record, index) => (
                   <tr
                     key={index}
-                    style={trStyle}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f1f1')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fafafa')}
+                    style={{
+                      ...trStyle,
+                      // Duplicity vizuálne odlíšime, nech ich používateľ hneď vidí
+                      backgroundColor: record._duplicate ? '#fdecea' : undefined,
+                      opacity: record._import === false ? 0.65 : 1,
+                    }}
                   >
-                    <td style={{ ...tdStyle, width: '20%' }}>
+                    <td style={{ ...tdStyle, width: '4%', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={record._import !== false}
+                        onChange={() => handleToggleImport(index)}
+                        title={record._duplicate
+                          ? 'Duplicita - zaškrtnutím ju naimportuješ napriek tomu'
+                          : 'Importovať tento záznam'}
+                      />
+                    </td>
+                    <td style={{ ...tdStyle, width: '17%' }}>
                       <input
                         type="text"
                         value={record.name || ''}
@@ -203,7 +320,7 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
                         placeholder="Zadaj názov"
                       />
                     </td>
-                    <td style={{ ...tdStyle, width: '30%' }}>
+                    <td style={{ ...tdStyle, width: '23%' }}>
                       <input
                         type="text"
                         value={record.description || ''}
@@ -212,8 +329,8 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
                         placeholder="Zadaj popis"
                       />
                     </td>
-                    <td style={{ ...tdStyle, width: '15%' }}>{record.price} €</td>
-                    <td style={{ ...tdStyle, width: '8%' }}>
+                    <td style={{ ...tdStyle, width: '10%' }}>{record.price} €</td>
+                    <td style={{ ...tdStyle, width: '7%' }}>
                       <input
                         type="number"
                         value={record.deductibility || 100}
@@ -222,7 +339,21 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
                         placeholder="100"
                       />
                     </td>
-                    <td style={{ ...tdStyle, width: '12%', fontSize: '0.75rem' }}>{record.start_date}</td>
+                    <td style={{ ...tdStyle, width: '10%', fontSize: '0.75rem' }}>{record.start_date}</td>
+                    <td style={{ ...tdStyle, width: '19%', fontSize: '0.75rem' }}>
+                      {record._duplicate ? (
+                        <span style={duplicateBadgeStyle}>
+                          {record._duplicateInFile
+                            ? 'Duplicita v súbore'
+                            : `Už importované${record._existing?.imported_at ? ` ${formatDate(record._existing.imported_at)}` : ''}`}
+                          <span style={matchedByStyle}>
+                            {record._matchedBy === 'ntry_ref' ? ' (podľa NtryRef)' : ' (podľa odtlačku)'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={newBadgeStyle}>Nový</span>
+                      )}
+                    </td>
                     <td style={{ ...tdStyle, width: '10%' }}>
                       <button
                         style={deleteButtonStyle}
@@ -245,10 +376,11 @@ const ImportExpenseRecordsModal = ({ onClose, onSubmit, companies }) => {
           <button
             onClick={handleImportClick}
             style={importButtonStyle}
+            disabled={loading || checkingDuplicates || selectedCount === 0}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#27ae60')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2ecc71')}
           >
-            Importovať
+            {selectedCount > 0 ? `Importovať (${selectedCount})` : 'Importovať'}
           </button>
           <button
             onClick={onClose}
@@ -299,6 +431,34 @@ const headerStyle = {
   fontSize: '1.3rem',
   fontWeight: '600',
   color: '#333',
+};
+
+const summaryStyle = {
+  display: 'flex',
+  gap: '1.5rem',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginBottom: '0.8rem',
+  fontSize: '0.9rem',
+  color: '#444',
+};
+
+const duplicateBadgeStyle = {
+  display: 'inline-block',
+  color: '#c0392b',
+  fontWeight: 600,
+};
+
+const matchedByStyle = {
+  display: 'block',
+  color: '#8e6b6b',
+  fontWeight: 400,
+  fontSize: '0.7rem',
+};
+
+const newBadgeStyle = {
+  color: '#27ae60',
+  fontWeight: 600,
 };
 
 const cacheLabelStyle = {

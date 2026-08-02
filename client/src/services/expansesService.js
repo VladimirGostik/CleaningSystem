@@ -24,3 +24,8 @@ export const deleteExpense = (id) => {
 export const importExpenses = (expensesData) => {
   return axiosInstance.post('/expenses/import', { expenses: expensesData });
 };
+
+// Zistí, ktoré záznamy z nahratého XML sú duplicity - nič neukladá
+export const checkImportDuplicates = (expensesData) => {
+  return axiosInstance.post('/expenses/import/check', { expenses: expensesData });
+};

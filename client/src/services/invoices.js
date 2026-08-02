@@ -39,6 +39,17 @@ export const getInvoiceStatistics = async (fromDate, toDate) => {
   }
 };
 
+// Zistí, ktoré transakcie z nahratého XML už boli spracované - nič neukladá
+export const checkTransactionDuplicates = async (transactions) => {
+  try {
+    const response = await axiosInstance.post('/invoices/transactions/check-duplicates', { transactions });
+    return response.data;
+  } catch (error) {
+    console.error('Error checking transaction duplicates:', error);
+    return null;
+  }
+};
+
 export const sendTransactionsToBackend = async (transactions) => {
   try {
     // Vyčistiť cache pre unlinkedTransactions pred odoslaním požiadavky

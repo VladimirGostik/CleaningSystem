@@ -1,5 +1,7 @@
 // controllers/expenseController.js
 const { Expense, Company, Invoice } = require('../models');
+const { annotateDuplicates, registerImport } = require('../services/importRegistry');
+const { SOURCE_EXPENSE } = require('../utils/transactionFingerprint');
 
 exports.getAllExpenses = async (req, res) => {
   try {
@@ -138,6 +140,39 @@ exports.deleteExpense = async (req, res) => {
   }
 };
 
+// Kontrola duplicít EŠTE PRED importom - frontend si takto vie duplicitné
+// riadky označiť a používateľ vidí, ktoré záznamy už v systéme sú.
+exports.checkImportDuplicates = async (req, res) => {
+  try {
+    const records = req.body.expenses;
+    if (!Array.isArray(records)) {
+      return res.status(400).json({ error: "'expenses' must be an array" });
+    }
+
+    const annotated = await annotateDuplicates(records, SOURCE_EXPENSE);
+    res.json({
+      results: annotated.map(({ index, fingerprint, duplicate, duplicateInFile, matchedBy, existing }) => ({
+        index,
+        fingerprint,
+        duplicate,
+        duplicateInFile,
+        matchedBy,
+        existing,
+      })),
+      duplicateCount: annotated.filter(a => a.duplicate).length,
+    });
+  } catch (error) {
+    console.error('Error checking expense import duplicates:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// Polia, ktoré sa smú dostať do tabuľky expenses (zvyšok z XML zahodíme)
+const EXPENSE_FIELDS = [
+  'id_company', 'name', 'description', 'price', 'deductibility',
+  'type', 'start_date', 'end_date', 'id_invoice', 'ntry_ref',
+];
+
 exports.importExpenses = async (req, res) => {
   try {
     const expensesData = req.body.expenses; // Očakávame pole výdavkov
@@ -145,37 +180,84 @@ exports.importExpenses = async (req, res) => {
       return res.status(400).json({ error: 'Expenses data must be a non-empty array.' });
     }
 
-    // Pred vytvorením každého výdavku vypočítame aj final_price
-    const expensesWithFinalPrice = expensesData.map(expData => {
-      const computedFinalPrice = parseFloat(expData.price) * (parseFloat(expData.deductibility) / 100);
-      return { ...expData, final_price: computedFinalPrice };
-    });
+    const annotated = await annotateDuplicates(expensesData, SOURCE_EXPENSE);
 
-    // Vyfiltrujeme záznamy, ktoré už máme podľa ntry_ref (žiadne duplicity)
-    const ntryRefsToImport = expensesWithFinalPrice
-      .map(e => e.ntry_ref)
-      .filter(ref => ref != null && String(ref).trim() !== '');
-    let toCreate = expensesWithFinalPrice;
-    if (ntryRefsToImport.length > 0) {
-      const existing = await Expense.findAll({
-        where: { ntry_ref: ntryRefsToImport },
+    // Staršie výdavky (naimportované ešte pred zavedením registra) majú vyplnený
+    // len ntry_ref - preto kontrolujeme aj ten, nech ich vieme tiež rozpoznať.
+    const ntryRefs = annotated.map(a => a.ntry_ref).filter(Boolean);
+    const legacyRefs = new Set();
+    if (ntryRefs.length > 0) {
+      const legacy = await Expense.findAll({
+        where: { ntry_ref: ntryRefs },
         attributes: ['ntry_ref'],
       });
-      const existingRefs = new Set((existing || []).map(e => e.ntry_ref));
-      toCreate = expensesWithFinalPrice.filter(e => !e.ntry_ref || !existingRefs.has(e.ntry_ref));
-    }
-    const skippedCount = expensesWithFinalPrice.length - toCreate.length;
-    if (skippedCount > 0) {
-      console.log(`Import výdavkov: preskočených ${skippedCount} záznamov (duplicitný NtryRef).`);
+      legacy.forEach(e => legacyRefs.add(e.ntry_ref));
     }
 
-    const createdExpenses = toCreate.length > 0
-      ? await Expense.bulkCreate(toCreate)
-      : [];
+    const createdExpenses = [];
+    const skipped = [];
+    const failed = [];
+
+    for (const item of annotated) {
+      // force = používateľ vedome potvrdil, že to duplicita nie je
+      const force = item.raw.force === true;
+      const isDuplicate = item.duplicate || (item.ntry_ref && legacyRefs.has(item.ntry_ref));
+
+      if (isDuplicate && !force) {
+        skipped.push({
+          index: item.index,
+          name: item.raw.name,
+          price: item.raw.price,
+          start_date: item.raw.start_date,
+          ntry_ref: item.ntry_ref,
+          reason: item.duplicateInFile
+            ? 'Duplicita v rámci nahratého súboru'
+            : 'Transakcia už bola naimportovaná',
+          matchedBy: item.matchedBy,
+          existing: item.existing,
+        });
+        continue;
+      }
+
+      const payload = {};
+      EXPENSE_FIELDS.forEach((field) => {
+        if (item.raw[field] !== undefined) payload[field] = item.raw[field];
+      });
+      payload.final_price = parseFloat(payload.price) * (parseFloat(payload.deductibility) / 100);
+      if (payload.type === 'jednorazova') payload.end_date = null;
+      // Stĺpec expenses.ntry_ref je UNIQUE - pri vedome potvrdenej duplicite ho
+      // preto nechávame prázdny, identitu záznamu drží register importov.
+      if (isDuplicate) payload.ntry_ref = null;
+
+      try {
+        const expense = await Expense.create(payload);
+        await registerImport(item, { id_expense: expense.id, force });
+        createdExpenses.push(expense);
+      } catch (createError) {
+        // Jeden chybný riadok nesmie zhodiť celý import
+        console.error(`Výdavok "${payload.name}" sa nepodarilo uložiť:`, createError.message);
+        failed.push({
+          index: item.index,
+          name: item.raw.name,
+          price: item.raw.price,
+          start_date: item.raw.start_date,
+          reason: createError.message,
+        });
+      }
+    }
+
+    if (skipped.length > 0) {
+      console.log(`Import výdavkov: preskočených ${skipped.length} duplicitných záznamov.`);
+    }
+
     res.status(201).json({
       message: 'Expenses imported successfully',
       expenses: createdExpenses,
-      skippedDuplicates: skippedCount,
+      skipped,
+      skippedDuplicates: skipped.length,
+      importedCount: createdExpenses.length,
+      failed,
+      failedCount: failed.length,
     });
   } catch (error) {
     console.error('Error importing expenses:', error);
