@@ -68,9 +68,14 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between', // Zobrazenie v jednom riadku
     },
     invoiceDetailsText: {
-        fontSize: 11,
+        fontSize: 9,
         color: colors.white, // Biely text na modrom pozadí
         marginBottom: 2,
+    },
+    // Každý dátum dostane vlastnú tretinu šírky, aby sa texty neprekrývali
+    invoiceDetailsColumn: {
+        flex: 1,
+        paddingRight: 4,
     },
     section: {
         padding: 15,
@@ -320,14 +325,20 @@ const InvoiceExtendedPdf = ({ invoice }) => {
 
                 {/* Detaily Faktúry v jednom riadku */}
                 <View style={styles.invoiceDetails}>
-                    {/* Dátum dodania nahrádza fakturačný mesiac; staršie faktúry ho nemajú vyplnený */}
-                    {delivery_date ? (
-                        <Text style={styles.invoiceDetailsText}>Dátum dodania: {formatDate(toLocalDateOnly(delivery_date))}</Text>
-                    ) : (
-                        <Text style={styles.invoiceDetailsText}>Fakturačný mesiac: {billing_month || 'N/A'}</Text>
-                    )}
-                    <Text style={styles.invoiceDetailsText}>Dátum vystavenia: {formatDate(issue_date) || 'N/A'}</Text>
-                    <Text style={styles.invoiceDetailsText}>Dátum splatnosti: {formatDate(due_date) || 'N/A'}</Text>
+                    <View style={styles.invoiceDetailsColumn}>
+                        {/* Dátum dodania nahrádza fakturačný mesiac; staršie faktúry ho nemajú vyplnený */}
+                        {delivery_date ? (
+                            <Text style={styles.invoiceDetailsText}>Dátum dodania: {formatDate(toLocalDateOnly(delivery_date))}</Text>
+                        ) : (
+                            <Text style={styles.invoiceDetailsText}>Fakturačný mesiac: {billing_month || 'N/A'}</Text>
+                        )}
+                    </View>
+                    <View style={styles.invoiceDetailsColumn}>
+                        <Text style={styles.invoiceDetailsText}>Dátum vystavenia: {formatDate(issue_date) || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.invoiceDetailsColumn}>
+                        <Text style={styles.invoiceDetailsText}>Dátum splatnosti: {formatDate(due_date) || 'N/A'}</Text>
+                    </View>
                 </View>
 
                 {/* Detaily Spoločností */}

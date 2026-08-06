@@ -68,9 +68,14 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     invoiceDetailsText: {
-        fontSize: 11,
+        fontSize: 9,
         color: colors.white,
         marginBottom: 2,
+    },
+    // Každý dátum dostane vlastnú tretinu šírky, aby sa texty neprekrývali
+    invoiceDetailsColumn: {
+        flex: 1,
+        paddingRight: 4,
     },
     section: {
         padding: 15,
@@ -262,9 +267,15 @@ const InvoicePdf = ({ invoice }) => {
 
                 {/* Detaily Faktúry v jednom riadku */}
                 <View style={styles.invoiceDetails}>
-                    <Text style={styles.invoiceDetailsText}>Fakturačný mesiac: {month || 'N/A'}</Text>
-                    <Text style={styles.invoiceDetailsText}>Dátum vystavenia: {invoice_date || 'N/A'}</Text>
-                    <Text style={styles.invoiceDetailsText}>Dátum splatnosti: {due_date || 'N/A'}</Text>
+                    <View style={styles.invoiceDetailsColumn}>
+                        <Text style={styles.invoiceDetailsText}>Fakturačný mesiac: {month || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.invoiceDetailsColumn}>
+                        <Text style={styles.invoiceDetailsText}>Dátum vystavenia: {invoice_date || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.invoiceDetailsColumn}>
+                        <Text style={styles.invoiceDetailsText}>Dátum splatnosti: {due_date || 'N/A'}</Text>
+                    </View>
                 </View>
 
                 {/* Detaily Spoločností */}
