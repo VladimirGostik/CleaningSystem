@@ -28,6 +28,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.DATE,
             allowNull: false,
         },
+        // Dátum dodania (dátum zdaniteľného plnenia) - zobrazuje sa na PDF faktúre
+        delivery_date: {
+            type: DataTypes.DATEONLY,
+            allowNull: true,
+        },
         billing_month: {
             type: DataTypes.STRING,
             allowNull: false,

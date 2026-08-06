@@ -284,7 +284,7 @@ exports.updateInvoiceAndSyncToMonthly = async (req, res) => {
 
 exports.generateMonthlyInvoices = async (req, res) => {
   try {
-    const { issue_date, due_date, billing_month, payment_date, status } = req.body;
+    const { issue_date, due_date, delivery_date, billing_month, payment_date, status } = req.body;
 
     // Fetch monthly invoice templates from the 'monthly_invoices' table
     const monthlyInvoices = await MonthlyInvoice.findAll({
@@ -343,6 +343,7 @@ exports.generateMonthlyInvoices = async (req, res) => {
         id_monthly_invoice: template.id,
         issue_date,
         due_date,
+        delivery_date: delivery_date || null,
         billing_month,
         payment_date,
         status,
@@ -400,7 +401,7 @@ exports.generateMonthlyInvoices = async (req, res) => {
 
 exports.generateMonthlyInvoicesForCompany = async (req, res) => {
   try {
-    const { issue_date, due_date, billing_month, payment_date, status, id_company } = req.body;
+    const { issue_date, due_date, delivery_date, billing_month, payment_date, status, id_company } = req.body;
 
     if (!id_company) {
       return res.status(400).json({ error: 'id_company is required' });
@@ -468,6 +469,7 @@ exports.generateMonthlyInvoicesForCompany = async (req, res) => {
         id_monthly_invoice: template.id,
         issue_date,
         due_date,
+        delivery_date: delivery_date || null,
         billing_month,
         payment_date,
         status,
@@ -776,17 +778,17 @@ exports.bulkDeleteInvoices = async (req, res) => {
   }
 };
 
-// Bulk update dátumov faktúr (issue_date, due_date, billing_month)
+// Bulk update dátumov faktúr (issue_date, due_date, delivery_date, billing_month)
 exports.bulkUpdateInvoiceDates = async (req, res) => {
   try {
-    const { invoiceIds, issue_date, due_date, billing_month } = req.body;
+    const { invoiceIds, issue_date, due_date, delivery_date, billing_month } = req.body;
 
     if (!invoiceIds || !Array.isArray(invoiceIds) || invoiceIds.length === 0) {
       return res.status(400).json({ error: 'invoiceIds sú povinné a musia byť pole.' });
     }
 
     // Validácia - aspoň jedno pole musí byť vyplnené
-    if (!issue_date && !due_date && !billing_month) {
+    if (!issue_date && !due_date && !delivery_date && !billing_month) {
       return res.status(400).json({ error: 'Aspoň jeden dátum alebo fakturačný mesiac musí byť zadaný.' });
     }
 
@@ -794,6 +796,7 @@ exports.bulkUpdateInvoiceDates = async (req, res) => {
     const updateData = {};
     if (issue_date) updateData.issue_date = issue_date;
     if (due_date) updateData.due_date = due_date;
+    if (delivery_date) updateData.delivery_date = delivery_date;
     if (billing_month) updateData.billing_month = billing_month;
 
     // Aktualizácia faktúr

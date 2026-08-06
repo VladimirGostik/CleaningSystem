@@ -26,6 +26,7 @@ const AddInvoiceModal = ({ closeModal, onSubmit }) => {
   const [autoGenerateInvoiceNumber, setAutoGenerateInvoiceNumber] = useState(true);
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
   const [billingMonth, setBillingMonth] = useState('');
   const [status] = useState('created');
 
@@ -231,6 +232,7 @@ const AddInvoiceModal = ({ closeModal, onSubmit }) => {
       invoice_number: invoiceNumber || null,
       issue_date: issueDate || null,
       due_date: dueDate || null,
+      delivery_date: deliveryDate || null,
       billing_month: billingMonthNumber,
       status: status, // Default status 'created'
     };
@@ -389,7 +391,7 @@ const AddInvoiceModal = ({ closeModal, onSubmit }) => {
             </div>
           </div>
 
-          {/* Fakturačný mesiac */}
+          {/* Fakturačný mesiac a dátum dodania */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
             <div className="form-group">
               <label className="block text-green-700 mb-2" htmlFor="billingMonth">
@@ -416,6 +418,19 @@ const AddInvoiceModal = ({ closeModal, onSubmit }) => {
                 <option value="11">November (11)</option>
                 <option value="12">December (12)</option>
               </select>
+            </div>
+            {/* Dátum dodania */}
+            <div className="form-group">
+              <label className="block text-green-700 mb-2" htmlFor="deliveryDate">
+                Dátum dodania:
+              </label>
+              <input
+                type="date"
+                id="deliveryDate"
+                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+              />
             </div>
           </div>
 

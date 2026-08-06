@@ -5,13 +5,14 @@ import PropTypes from 'prop-types';
 const BulkEditInvoiceDatesModal = ({ closeModal, onSubmit }) => {
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
   const [billingMonth, setBillingMonth] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Validácia - aspoň jedno pole musí byť vyplnené
-    if (!issueDate && !dueDate && !billingMonth) {
+    if (!issueDate && !dueDate && !deliveryDate && !billingMonth) {
       alert('Prosím vyplňte aspoň jedno pole.');
       return;
     }
@@ -19,6 +20,7 @@ const BulkEditInvoiceDatesModal = ({ closeModal, onSubmit }) => {
     const updateData = {};
     if (issueDate) updateData.issue_date = issueDate;
     if (dueDate) updateData.due_date = dueDate;
+    if (deliveryDate) updateData.delivery_date = deliveryDate;
     if (billingMonth) updateData.billing_month = billingMonth;
 
     onSubmit(updateData);
@@ -53,6 +55,20 @@ const BulkEditInvoiceDatesModal = ({ closeModal, onSubmit }) => {
               className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
+            />
+            <p className="text-xs text-gray-500 mt-1">Ponechajte prázdne, ak nechcete zmeniť</p>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2" htmlFor="deliveryDate">
+              Dátum dodania:
+            </label>
+            <input
+              type="date"
+              id="deliveryDate"
+              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
             />
             <p className="text-xs text-gray-500 mt-1">Ponechajte prázdne, ak nechcete zmeniť</p>
           </div>

@@ -233,6 +233,10 @@ const formatDescription = (desc, billing_month, issue_date) => {
   return formatted;
 };
 
+// Dátum dodania je v DB čistý dátum (YYYY-MM-DD). Doplníme lokálne poludnie,
+// aby sa deň neposunul kvôli časovej zóne pri prevode na Date.
+const toLocalDateOnly = (value) => (value ? `${String(value).slice(0, 10)}T12:00:00` : null);
+
 // Funkcia na konverziu formátu čísla faktúry pre variabilný symbol
 // Konvertuje "00185/2025" na "202500185" (rok + číslo s leading zeros)
 const formatInvoiceNumberForVariableSymbol = (invoiceNumber) => {
@@ -259,6 +263,7 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
     invoice_number,
     issue_date,
     due_date,
+    delivery_date,
     billing_month,
     company_name,
     company_address,
@@ -326,7 +331,12 @@ const InvoiceExtendedPDFBulk = ({ invoice }) => {
         {/* Detaily Faktúry v jednom riadku */}
         <View style={styles.invoiceDetails}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.invoiceDetailsText}>Fakturačný mesiac: {billing_month || 'N/A'}</Text>
+            {/* Dátum dodania nahrádza fakturačný mesiac; staršie faktúry ho nemajú vyplnený */}
+            {delivery_date ? (
+              <Text style={styles.invoiceDetailsText}>Dátum dodania: {formatDate(toLocalDateOnly(delivery_date))}</Text>
+            ) : (
+              <Text style={styles.invoiceDetailsText}>Fakturačný mesiac: {billing_month || 'N/A'}</Text>
+            )}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.invoiceDetailsText}>Dátum vystavenia: {formatDate(issue_date)}</Text>
@@ -477,6 +487,7 @@ InvoiceExtendedPDFBulk.propTypes = {
     invoice_name: PropTypes.string,
     issue_date: PropTypes.string,
     due_date: PropTypes.string,
+    delivery_date: PropTypes.string,
     billing_month: PropTypes.string,
     company_name: PropTypes.string,
     company_address: PropTypes.string,

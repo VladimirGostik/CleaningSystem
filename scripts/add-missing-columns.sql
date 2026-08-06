@@ -9,6 +9,10 @@
 ALTER TABLE invoices
   ADD COLUMN IF NOT EXISTS id_monthly_invoice INTEGER REFERENCES monthly_invoices(id) ON DELETE SET NULL;
 
+-- Faktúry: dátum dodania (dátum zdaniteľného plnenia)
+ALTER TABLE invoices
+  ADD COLUMN IF NOT EXISTS delivery_date DATE;
+
 -- Výdavky: odkaz na faktúru a identifikátor transakcie z banky (NtryRef)
 ALTER TABLE expenses
   ADD COLUMN IF NOT EXISTS id_invoice INTEGER REFERENCES invoices(id) ON DELETE SET NULL;

@@ -27,6 +27,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, invoic
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
   const [billingMonth, setBillingMonth] = useState('');
   const [paymentDate, setpaymentDate] = useState('');
   const [status, setStatus] = useState('');
@@ -61,6 +62,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, invoic
         setInvoiceNumber(invoice.invoice_number || '');
         setIssueDate(invoice.issue_date ? invoice.issue_date.slice(0, 10) : '');
         setDueDate(invoice.due_date ? invoice.due_date.slice(0, 10) : '');
+        setDeliveryDate(invoice.delivery_date ? invoice.delivery_date.slice(0, 10) : '');
         setBillingMonth(invoice.billing_month ? String(invoice.billing_month) : '');
         setDescriptionAboveServices(invoice.description_above_services || '');
         setDescriptionServices(invoice.description_services || '');
@@ -171,6 +173,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, invoic
       issue_date: issueDate || null,
       payment_date: paymentDate || null,
       due_date: dueDate || null,
+      delivery_date: deliveryDate || null,
       billing_month: billingMonthNumber,
       status: status,
     };
@@ -222,6 +225,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, invoic
       issue_date: issueDate || null,
       payment_date: paymentDate || null,
       due_date: dueDate || null,
+      delivery_date: deliveryDate || null,
       billing_month: billingMonthNumber,
       status: status,
     };
@@ -446,6 +450,19 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, invoic
                 <option value="11">November (11)</option>
                 <option value="12">December (12)</option>
               </select>
+            </div>
+            {/* Delivery Date */}
+            <div className="form-group">
+              <label className="block text-green-700 mb-2" htmlFor="deliveryDate">
+                Dátum dodania:
+              </label>
+              <input
+                type="date"
+                id="deliveryDate"
+                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+              />
             </div>
           </div>
 

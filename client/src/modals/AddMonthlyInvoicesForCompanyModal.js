@@ -7,6 +7,7 @@ import { getCompanies } from '../services/companyService';
 const AddMonthlyInvoicesForCompanyModal = ({ closeModal, onSubmit }) => {
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
   const [billingMonth, setBillingMonth] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('');
   const [companies, setCompanies] = useState([]);
@@ -43,6 +44,7 @@ const AddMonthlyInvoicesForCompanyModal = ({ closeModal, onSubmit }) => {
     const data = {
       issue_date: issueDate,
       due_date: dueDate,
+      delivery_date: deliveryDate || null,
       billing_month: billingMonthNumber,
       payment_date: null, // Always null
       status: status,
@@ -143,6 +145,20 @@ const AddMonthlyInvoicesForCompanyModal = ({ closeModal, onSubmit }) => {
               <option value="11">November (11)</option>
               <option value="12">December (12)</option>
             </select>
+          </div>
+          {/* Delivery Date */}
+          <div className="mb-4">
+            <label className="block text-green-700 mb-2" htmlFor="deliveryDate">
+              Dátum dodania:
+            </label>
+            <input
+              type="date"
+              id="deliveryDate"
+              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
+            />
+            <p className="text-xs text-gray-500 mt-1">Nepovinné - zobrazí sa na PDF faktúre</p>
           </div>
           {/* Submit Button */}
           <div className="flex justify-end">

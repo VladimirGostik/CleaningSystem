@@ -30,6 +30,7 @@ const buildRow = (invoice, service) => ({
   'Dátum vystavenia': formatDate(invoice.issue_date),
   'Dátum splatnosti': formatDate(invoice.due_date),
   'Dátum úhrady': formatDate(invoice.payment_date),
+  'Dátum dodania': formatDate(invoice.delivery_date),
   'Fakturačný mesiac': invoice.billing_month,
 
   'Dodávateľ': invoice.company_name,
