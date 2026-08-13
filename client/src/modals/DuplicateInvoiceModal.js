@@ -1,4 +1,4 @@
-// src/modals/EditInvoiceModal.js
+// src/modals/DuplicateInvoiceModal.js
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -7,11 +7,10 @@ import {
   getResidentialCompanies,
   getResidentialCompanyById,
 } from '../services/companyService';
-import { getInvoiceById } from '../services/invoices';
+import { getInvoiceById, getLastNumber } from '../services/invoices';
 import PropTypes from 'prop-types';
-import axios from 'axios';
 
-const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDuplicate, invoiceId }) => {
+const DuplicateInvoiceModal = ({ closeModal, onSubmit, invoiceId }) => {
   const [invoiceName, setInvoiceName] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedResidentialCompany, setSelectedResidentialCompany] = useState('');
@@ -25,13 +24,11 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
   const [visible, setVisible] = useState(true);
 
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [autoGenerateInvoiceNumber, setAutoGenerateInvoiceNumber] = useState(true);
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [billingMonth, setBillingMonth] = useState('');
-  const [paymentDate, setpaymentDate] = useState('');
-  const [status, setStatus] = useState('');
-  const [idMonthlyInvoice, setIdMonthlyInvoice] = useState(null);
 
   useEffect(() => {
     // Load companies and residential companies
@@ -49,25 +46,22 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
   }, []);
 
   useEffect(() => {
-    // Fetch existing invoice data
+    // Fetch source invoice data and prefill the form.
+    // Not copied on purpose: invoice_number (auto-generated), payment_date,
+    // status (new invoice is always 'created') and id_monthly_invoice.
     const fetchInvoiceData = async () => {
       try {
-        const response = await getInvoiceById(invoiceId);
-        const invoice = response;
+        const invoice = await getInvoiceById(invoiceId);
 
-        // Populate state variables with fetched data
         setInvoiceName(invoice.invoice_name || '');
         setSelectedCompany(invoice.id_company || '');
         setSelectedResidentialCompany(invoice.id_residential_company || '');
-        setInvoiceNumber(invoice.invoice_number || '');
         setIssueDate(invoice.issue_date ? invoice.issue_date.slice(0, 10) : '');
         setDueDate(invoice.due_date ? invoice.due_date.slice(0, 10) : '');
         setDeliveryDate(invoice.delivery_date ? invoice.delivery_date.slice(0, 10) : '');
         setBillingMonth(invoice.billing_month ? String(invoice.billing_month) : '');
         setDescriptionAboveServices(invoice.description_above_services || '');
         setDescriptionServices(invoice.description_services || '');
-        setpaymentDate(invoice.payment_date ? invoice.payment_date.slice(0, 10) : '');
-        setStatus(invoice.status || '');
         setCompanyDetails({
           company_name: invoice.company_name || '',
           company_address: invoice.company_address || '',
@@ -75,6 +69,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
           postal_code: invoice.postal_code || '',
           ico: invoice.company_ico || '',
           dic: invoice.company_dic || '',
+          company_ic_dph: invoice.company_ic_dph || '',
           company_iban: invoice.company_iban || '',
           bank_connection: invoice.bank_connection || '',
         });
@@ -89,7 +84,9 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
           residential_postal_code: invoice.residential_postal_code || '',
           ico: invoice.residential_company_ico || '',
           dic: invoice.residential_company_dic || '',
+          residential_company_ic_dph: invoice.residential_company_ic_dph || '',
           iban: invoice.residential_company_iban || '',
+          bank_connection: invoice.residential_bank_connection || '',
         });
         setServices(
           invoice.services.map((service) => ({
@@ -98,7 +95,6 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
             price: service.price,
           })) || [{ name: '', quantity: '', price: '' }]
         );
-        setIdMonthlyInvoice(invoice.id_monthly_invoice ?? null);
       } catch (error) {
         console.error('Error fetching invoice data:', error);
       }
@@ -106,6 +102,72 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
 
     fetchInvoiceData();
   }, [invoiceId]);
+
+  // Function to generate invoice number
+  const generateInvoiceNumber = async () => {
+    if (!selectedCompany || !issueDate || !billingMonth) {
+      return;
+    }
+
+    // Get billing month number (now it's just a number 1-12)
+    const billingMonthNumber = parseInt(billingMonth, 10);
+
+    // Get the year from issueDate
+    let invoiceYear = new Date(issueDate).getFullYear();
+
+    // Adjust the year if billing month is December (12)
+    if (billingMonthNumber === 12) {
+      invoiceYear -= 1;
+    }
+
+    try {
+      const response = await getLastNumber(selectedCompany, invoiceYear);
+
+      if (response.error) {
+        console.error('Backend vrátil error:', response.error);
+        return;
+      }
+      const lastInvoiceNumber = response.lastInvoiceNumber;
+
+      // Extract and increment the number
+      let newNumber = 1;
+      if (lastInvoiceNumber) {
+        // Support both old format (00001/2026) and new format (20260001)
+        if (lastInvoiceNumber.includes('/')) {
+          // Old format: 00001/2026
+          const lastNumberPart = lastInvoiceNumber.split('/')[0];
+          newNumber = parseInt(lastNumberPart, 10) + 1;
+        } else {
+          // New format: 20260001 (first 4 digits are year, rest is number)
+          const lastYear = lastInvoiceNumber.substring(0, 4);
+          if (lastYear === invoiceYear.toString()) {
+            const lastNumberPart = lastInvoiceNumber.substring(4);
+            newNumber = parseInt(lastNumberPart, 10) + 1;
+          }
+          // If year doesn't match, start from 1
+        }
+      }
+
+      // Format the new number: YYYYNNNN (e.g., 20260001)
+      const formattedNumber = newNumber.toString().padStart(4, '0');
+      const newInvoiceNumber = `${invoiceYear}${formattedNumber}`;
+
+      setInvoiceNumber(newInvoiceNumber);
+    } catch (error) {
+      console.error('Error generating invoice number:', error);
+    }
+  };
+
+  // Regenerate invoice number when dependencies change
+  useEffect(() => {
+    const fetchInvoiceNumber = async () => {
+      if (autoGenerateInvoiceNumber && selectedCompany && issueDate && billingMonth) {
+        await generateInvoiceNumber();
+      }
+    };
+
+    fetchInvoiceNumber();
+  }, [selectedCompany, issueDate, billingMonth, autoGenerateInvoiceNumber]);
 
   const handleServiceChange = (index, field, value) => {
     const updatedServices = [...services];
@@ -171,11 +233,10 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
       description_services: descriptionServices || null,
       invoice_number: invoiceNumber || null,
       issue_date: issueDate || null,
-      payment_date: paymentDate || null,
       due_date: dueDate || null,
       delivery_date: deliveryDate || null,
       billing_month: billingMonthNumber,
-      status: status,
+      status: 'created',
     };
 
     const servicesData = services.map((service) => ({
@@ -184,66 +245,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
       price: parseFloat(service.price),
     }));
 
-    const dataToSend = { ...invoiceData, services: servicesData };
-    onSubmit(invoiceId, dataToSend);
-  };
-
-  const buildPayload = () => {
-    const billingMonthNumber = billingMonth ? parseInt(billingMonth, 10) : null;
-    if (!billingMonthNumber || isNaN(billingMonthNumber) || billingMonthNumber < 1 || billingMonthNumber > 12) {
-      return null;
-    }
-    const invoiceData = {
-      invoice_name: invoiceName,
-      id_company: selectedCompany,
-      id_residential_company: selectedResidentialCompany,
-      company_name: companyDetails.company_name || null,
-      company_address: companyDetails.company_address || null,
-      city: companyDetails.city || null,
-      postal_code: companyDetails.postal_code || null,
-      company_ico: companyDetails.ico || null,
-      company_dic: companyDetails.dic || null,
-      company_ic_dph: companyDetails.company_ic_dph || null,
-      company_iban: companyDetails.company_iban || null,
-      bank_connection: companyDetails.bank_connection || null,
-      header1: residentialCompanyDetails.header1 || null,
-      header2: residentialCompanyDetails.header2 || null,
-      header3: residentialCompanyDetails.header3 || null,
-      header4: residentialCompanyDetails.header4 || null,
-      residential_company_name: residentialCompanyDetails.residential_company_name || null,
-      residential_company_address: residentialCompanyDetails.residential_company_address || null,
-      residential_city: residentialCompanyDetails.residential_city || null,
-      residential_postal_code: residentialCompanyDetails.residential_postal_code || null,
-      residential_company_ico: residentialCompanyDetails.ico || null,
-      residential_company_dic: residentialCompanyDetails.dic || null,
-      residential_company_ic_dph: residentialCompanyDetails.residential_company_ic_dph || null,
-      residential_company_iban: residentialCompanyDetails.iban || null,
-      residential_bank_connection: residentialCompanyDetails.bank_connection || null,
-      description_above_services: descriptionAboveServices || null,
-      description_services: descriptionServices || null,
-      invoice_number: invoiceNumber || null,
-      issue_date: issueDate || null,
-      payment_date: paymentDate || null,
-      due_date: dueDate || null,
-      delivery_date: deliveryDate || null,
-      billing_month: billingMonthNumber,
-      status: status,
-    };
-    const servicesData = services.map((s) => ({
-      name: s.name,
-      quantity: parseInt(s.quantity, 10),
-      price: parseFloat(s.price),
-    }));
-    return { ...invoiceData, services: servicesData };
-  };
-
-  const handleSaveAndSyncToMonthlyClick = () => {
-    const dataToSend = buildPayload();
-    if (!dataToSend) {
-      alert('Prosím vyberte platný fakturačný mesiac (1-12).');
-      return;
-    }
-    if (onSaveAndSyncToMonthly) onSaveAndSyncToMonthly(invoiceId, dataToSend);
+    onSubmit({ invoiceData, servicesData });
   };
 
   const handleClose = () => {
@@ -263,7 +265,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
           }`}
       >
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-2xl font-bold text-green-600">Upraviť faktúru</h2>
+          <h2 className="text-2xl font-bold text-green-600">Duplikovať faktúru</h2>
           <button
             type="button"
             className="bg-gray-300 text-black py-2 px-4 rounded-md hover:bg-gray-400 transition duration-300"
@@ -382,6 +384,19 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
 
           {/* Invoice Number and Dates */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+            {/* Automatické generovanie čísla faktúry */}
+            <div className="form-group flex items-center">
+              <input
+                type="checkbox"
+                id="autoGenerateInvoiceNumber"
+                className="mr-2"
+                checked={autoGenerateInvoiceNumber}
+                onChange={(e) => setAutoGenerateInvoiceNumber(e.target.checked)}
+              />
+              <label className="text-green-700" htmlFor="autoGenerateInvoiceNumber">
+                Automaticky generovať číslo faktúry
+              </label>
+            </div>
             {/* Invoice Number */}
             <div className="form-group">
               <label className="block text-green-700 mb-2" htmlFor="invoiceNumber">
@@ -393,6 +408,7 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
                 className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
+                disabled={autoGenerateInvoiceNumber}
                 required
               />
             </div>
@@ -472,7 +488,6 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
             {/* Left Box - Company Details */}
             <div className="p-4 border rounded-md">
               <h3 className="text-lg font-semibold mb-4">Údaje spoločnosti</h3>
-              {/* ... Vaše polia pre údaje spoločnosti */}
               {/* Názov spoločnosti */}
               <div className="mb-2">
                 <label className="block text-green-700 mb-2" htmlFor="companyName">
@@ -859,32 +874,12 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
             >
               Zavrieť
             </button>
-            <div className="flex gap-2">
-              {onDuplicate && (
-                <button
-                  type="button"
-                  className="bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600 transition duration-300"
-                  onClick={() => onDuplicate(invoiceId)}
-                >
-                  Duplikovať
-                </button>
-              )}
-              <button
-                type="submit"
-                className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300"
-              >
-                Uložiť
-              </button>
-              {idMonthlyInvoice && onSaveAndSyncToMonthly && (
-                <button
-                  type="button"
-                  className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300"
-                  onClick={handleSaveAndSyncToMonthlyClick}
-                >
-                  Uložiť a zmeniť v mesačnej faktúre
-                </button>
-              )}
-            </div>
+            <button
+              type="submit"
+              className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300"
+            >
+              Vytvoriť faktúru
+            </button>
           </div>
         </form>
       </div>
@@ -892,12 +887,10 @@ const EditInvoiceModal = ({ closeModal, onSubmit, onSaveAndSyncToMonthly, onDupl
   );
 };
 
-EditInvoiceModal.propTypes = {
+DuplicateInvoiceModal.propTypes = {
   closeModal: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
-  onSaveAndSyncToMonthly: PropTypes.func,
-  onDuplicate: PropTypes.func,
   invoiceId: PropTypes.number.isRequired,
 };
 
-export default EditInvoiceModal;
+export default DuplicateInvoiceModal;

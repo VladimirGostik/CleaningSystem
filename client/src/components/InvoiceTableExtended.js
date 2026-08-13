@@ -12,6 +12,7 @@ import { getResidentialCompanies } from '../services/companyService';
 const InvoiceTableExtended = ({
   invoices,
   onEdit,
+  onDuplicate,
   onMarkAsSent,
   onMarkAsPaid,
   onDelete,
@@ -314,6 +315,15 @@ const InvoiceTableExtended = ({
                       <button
                         className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
                         onClick={() => {
+                          onDuplicate(invoice.id);
+                          setShowActions(null);
+                        }}
+                      >
+                        Duplikovať
+                      </button>
+                      <button
+                        className="w-full text-left px-4 py-2 text-black hover:bg-gray-100 transition-colors duration-200"
+                        onClick={() => {
                           handlePdfView(invoice);
                           setShowActions(null);
                         }}
@@ -495,6 +505,7 @@ const InvoiceTableExtended = ({
 InvoiceTableExtended.propTypes = {
   invoices: PropTypes.array.isRequired,
   onEdit: PropTypes.func.isRequired,
+  onDuplicate: PropTypes.func.isRequired,
   onMarkAsSent: PropTypes.func.isRequired,
   onMarkAsPaid: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,

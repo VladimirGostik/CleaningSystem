@@ -8,6 +8,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import InvoiceTableExtended from '../components/InvoiceTableExtended';
 import AddInvoiceModal from '../modals/AddInvoiceModal'; // Import the modal component
 import EditInvoiceModal from '../modals/EditInvoiceModal';
+import DuplicateInvoiceModal from '../modals/DuplicateInvoiceModal';
 import AddMonthlyInvoicesModal from '../modals/AddMonthlyInvoicesModal';
 import AddMonthlyInvoicesForCompanyModal from '../modals/AddMonthlyInvoicesForCompanyModal';
 import InvoiceFilter from '../components/InvoiceFilter'; // Import the filter component
@@ -45,6 +46,7 @@ const Invoices = () => {
   const [filteredInvoices, setFilteredInvoices] = useState([]); // Invoices after filtering
   const [showAddInvoiceModal, setShowAddInvoiceModal] = useState(false); // Add Invoice Modal
   const [showEditInvoiceModal, setShowEditInvoiceModal] = useState(false); // Edit Invoice Modal
+  const [showDuplicateInvoiceModal, setShowDuplicateInvoiceModal] = useState(false); // Duplicate Invoice Modal
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null); // Selected Invoice ID for editing
   const [showAddMonthlyInvoicesModal, setShowAddMonthlyInvoicesModal] = useState(false); // Add Monthly Invoices Modal
   const [showAddMonthlyInvoicesForCompanyModal, setShowAddMonthlyInvoicesForCompanyModal] = useState(false); // Add Monthly Invoices for Company Modal
@@ -124,6 +126,24 @@ const Invoices = () => {
   const handleEdit = (invoiceId) => {
     setSelectedInvoiceId(invoiceId);
     setShowEditInvoiceModal(true);
+  };
+
+  const handleDuplicate = (invoiceId) => {
+    setSelectedInvoiceId(invoiceId);
+    setShowDuplicateInvoiceModal(true);
+  };
+
+  const handleDuplicateSubmit = async ({ invoiceData, servicesData }) => {
+    try {
+      await addInvoice(invoiceData, servicesData);
+      setShowDuplicateInvoiceModal(false);
+      setSelectedInvoiceId(null);
+      fetchInvoices();
+      toast.success('Faktúra úspešne duplikovaná');
+    } catch (error) {
+      console.error('Error duplicating invoice:', error);
+      toast.error('Chyba pri duplikovaní faktúry');
+    }
   };
 
   const handleMarkAsSent = async (invoiceId) => {
@@ -1129,6 +1149,7 @@ const Invoices = () => {
         <InvoiceTableExtended
           invoices={currentInvoices}
           onEdit={handleEdit}
+          onDuplicate={handleDuplicate}
           onMarkAsSent={handleMarkAsSent}
           onMarkAsPaid={handleMarkAsPaid}
           onDelete={handleDelete}
@@ -1226,6 +1247,20 @@ const Invoices = () => {
           }}
           onSubmit={handleUpdateInvoice}
           onSaveAndSyncToMonthly={handleSaveAndSyncToMonthly}
+          onDuplicate={(invoiceId) => {
+            setShowEditInvoiceModal(false);
+            handleDuplicate(invoiceId);
+          }}
+          invoiceId={selectedInvoiceId}
+        />
+      )}
+      {showDuplicateInvoiceModal && (
+        <DuplicateInvoiceModal
+          closeModal={() => {
+            setShowDuplicateInvoiceModal(false);
+            setSelectedInvoiceId(null);
+          }}
+          onSubmit={handleDuplicateSubmit}
           invoiceId={selectedInvoiceId}
         />
       )}

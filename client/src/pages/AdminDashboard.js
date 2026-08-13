@@ -20,9 +20,11 @@ const CompanyDashboard = () => {
     unpaidInvoicesCount: 0,
     monthlyRevenue: '0.00',
   });
-  // Predvolená časová perióda – uprav si podľa potreby
-  const [fromDate, setFromDate] = useState('2025-01-01');
-  const [toDate, setToDate] = useState('2025-12-31');
+  // Predvolená časová perióda – od 1.1. aktuálneho roka po dnešný deň
+  const now = new Date();
+  const todayString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const [fromDate, setFromDate] = useState(`${now.getFullYear()}-01-01`);
+  const [toDate, setToDate] = useState(todayString);
 
   // Stav pre zobrazenie modálu pre pridanie novej firmy
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
